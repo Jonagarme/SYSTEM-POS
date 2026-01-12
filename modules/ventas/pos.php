@@ -497,9 +497,11 @@ $date_now = date('d/m/Y H:i');
                             <i class="fas fa-exclamation-triangle"></i>
                         </div>
                         <div class="confirm-title">¿Eliminar Venta?</div>
-                        <div class="confirm-text">Se perderán todos los productos agregados a esta pestaña. Esta acción no se puede deshacer.</div>
+                        <div class="confirm-text">Se perderán todos los productos agregados a esta pestaña. Esta acción
+                            no se puede deshacer.</div>
                         <div class="confirm-actions">
-                            <button class="btn btn-secondary" onclick="document.getElementById('modal-eliminar-venta').style.display='none'">
+                            <button class="btn btn-secondary"
+                                onclick="document.getElementById('modal-eliminar-venta').style.display='none'">
                                 <i class="fas fa-times"></i> Cancelar
                             </button>
                             <button class="btn btn-primary" id="btn-confirmar-eliminar" style="background: #ef4444;">
@@ -776,13 +778,13 @@ $date_now = date('d/m/Y H:i');
 
         function closeTab(index) {
             const sale = sales[index];
-            
+
             // Si el carrito tiene productos, mostrar modal personalizado
             if (sale.cart.length > 0) {
                 const modalEliminar = document.getElementById('modal-eliminar-venta');
                 modalEliminar.style.display = 'flex';
-                
-                document.getElementById('btn-confirmar-eliminar').onclick = function() {
+
+                document.getElementById('btn-confirmar-eliminar').onclick = function () {
                     modalEliminar.style.display = 'none';
                     executeCloseTab(index);
                 };
@@ -1114,41 +1116,59 @@ $date_now = date('d/m/Y H:i');
 
             console.log("JSON a enviar:", saleData);
 
-            // 3. Poblar Ticket Térmico
-            document.getElementById('t-cliente').innerText = saleData.data.razonSocialComprador;
-            document.getElementById('t-ruc').innerText = saleData.data.identificacionComprador;
-            document.getElementById('t-direccion').innerText = sale.client.direccion || 'S/N';
-            document.getElementById('t-total').innerText = `$ ${saleData.data.importeTotal.toFixed(2)}`;
+            fetch('api_guardar_venta.php', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    data: saleData.data,
+                    cliente_id: sale.client.id
+                })
+            })
+                .then(res => res.json())
+                .then(res => {
+                    if (res.success) {
+                        // 3. Poblar Ticket Térmico
+                        document.getElementById('t-cliente').innerText = saleData.data.razonSocialComprador;
+                        document.getElementById('t-ruc').innerText = saleData.data.identificacionComprador;
+                        document.getElementById('t-direccion').innerText = sale.client.direccion || 'S/N';
+                        document.getElementById('t-total').innerText = `$ ${saleData.data.importeTotal.toFixed(2)}`;
 
-            const tItems = document.getElementById('t-items');
-            tItems.innerHTML = '';
-            sale.cart.forEach(item => {
-                tItems.innerHTML += `
-                    <tr>
-                        <td>${item.quantity}</td>
-                        <td>${item.name}</td>
-                        <td>${item.price.toFixed(2)}</td>
-                        <td>${(item.price * item.quantity).toFixed(2)}</td>
-                    </tr>
-                `;
-            });
+                        const tItems = document.getElementById('t-items');
+                        tItems.innerHTML = '';
+                        sale.cart.forEach(item => {
+                            tItems.innerHTML += `
+                            <tr>
+                                <td>${item.quantity}</td>
+                                <td>${item.name}</td>
+                                <td>${item.price.toFixed(2)}</td>
+                                <td>${(item.price * item.quantity).toFixed(2)}</td>
+                            </tr>
+                        `;
+                        });
 
-            // 4. Mostrar Modal de Éxito/Ticket
-            document.getElementById('modal-ticket').style.display = 'flex';
+                        // 4. Mostrar Modal de Éxito/Ticket
+                        document.getElementById('modal-ticket').style.display = 'flex';
 
-            // Vaciar carrito de ESTA venta y remover tab si no es la primera, 
-            // o simplemente resetearla. 
-            if (sales.length > 1) {
-                closeTab(activeSaleIndex);
-            } else {
-                sales[0] = {
-                    cart: [],
-                    client: { id: 1, nombres: 'CONSUMIDOR', apellidos: 'FINAL', cedula_ruc: '9999999999' },
-                    discount: 0,
-                    priceMode: 'NORMAL'
-                };
-                syncUIWithActiveSale();
-            }
+                        // Vaciar carrito
+                        if (sales.length > 1) {
+                            closeTab(activeSaleIndex);
+                        } else {
+                            sales[0] = {
+                                cart: [],
+                                client: { id: 1, nombres: 'CONSUMIDOR', apellidos: 'FINAL', cedula_ruc: '9999999999' },
+                                discount: 0,
+                                priceMode: 'NORMAL'
+                            };
+                            syncUIWithActiveSale();
+                        }
+                    } else {
+                        alert("Error: " + res.error);
+                    }
+                })
+                .catch(err => {
+                    console.error("Error:", err);
+                    alert("Error de conexión al guardar.");
+                });
         }
 
         function debounce(func, wait) {
