@@ -211,6 +211,37 @@ $movimientos = [
             border-radius: 20px;
             font-weight: 700;
         }
+
+        /* RESPONSIVE STYLES */
+        @media (max-width: 768px) {
+            .hist-header {
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 15px;
+            }
+
+            .btn-hist-group {
+                flex-direction: column;
+                width: 100%;
+            }
+
+            .btn-view-actual,
+            .btn-cerrar-hist {
+                width: 100%;
+                justify-content: center;
+            }
+
+            .table-responsive-container {
+                width: 100%;
+                overflow-x: auto;
+                -webkit-overflow-scrolling: touch;
+            }
+
+            .hist-table {
+                min-width: 1000px;
+                /* Many columns, need scroll */
+            }
+        }
     </style>
 </head>
 
@@ -243,73 +274,76 @@ $movimientos = [
                 </div>
 
                 <div class="hist-table-container">
-                    <table class="hist-table">
-                        <thead>
-                            <tr>
-                                <th>ID</th>
-                                <th>Caja</th>
-                                <th>Tipo</th>
-                                <th>Fecha Apertura</th>
-                                <th>Fecha Cierre</th>
-                                <th>Estado</th>
-                                <th>Saldo Inicial</th>
-                                <th>Saldo Final</th>
-                                <th>Diferencia</th>
-                                <th>Usuario</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            <!-- Row 1 (Open) -->
-                            <tr class="row-open">
-                                <td style="font-weight: 700;">#24</td>
-                                <td>
-                                    <strong>CAJA002</strong><br>
-                                    <small style="color: #64748b;">CAJA SECUNDARIA</small>
-                                </td>
-                                <td><span class="badge-tipo bg-apert"><i class="fas fa-lock-open"></i> APERTURA</span>
-                                </td>
-                                <td>10/11/2025<br>20:46:56</td>
-                                <td style="color: #cbd5e1;">--</td>
-                                <td><span class="badge-est est-abierta">ABIERTA</span></td>
-                                <td><span class="val-badge">$0,00</span></td>
-                                <td style="color: #cbd5e1;">--</td>
-                                <td style="color: #cbd5e1;">--</td>
-                                <td><strong>Apertura:</strong> Usuario 3</td>
-                            </tr>
-                            <!-- Row 2 (Closed with Profit) -->
-                            <tr class="row-closed-profit">
-                                <td style="font-weight: 700;">#23</td>
-                                <td>
-                                    <strong>CAJA001</strong><br>
-                                    <small style="color: #64748b;">Caja Principal</small>
-                                </td>
-                                <td><span class="badge-tipo bg-cierr"><i class="fas fa-lock"></i> CIERRE</span></td>
-                                <td>09/11/2025<br>19:41:24</td>
-                                <td>09/11/2025<br>19:45:36</td>
-                                <td><span class="badge-est est-cerrada">CERRADA</span></td>
-                                <td><span class="val-badge">$50,00</span></td>
-                                <td><span class="val-total-c">$52,50</span></td>
-                                <td><span class="diff-pos">+$2,50</span></td>
-                                <td><strong>Apertura:</strong> Usuario 1<br><strong>Cierre:</strong> Usuario 1</td>
-                            </tr>
-                            <!-- Row 3 (Closed Default) -->
-                            <tr class="row-closed">
-                                <td style="font-weight: 700;">#21</td>
-                                <td>
-                                    <strong>CAJA001</strong><br>
-                                    <small style="color: #64748b;">Caja Principal</small>
-                                </td>
-                                <td><span class="badge-tipo bg-cierr"><i class="fas fa-lock"></i> CIERRE</span></td>
-                                <td>08/11/2025<br>18:30:21</td>
-                                <td>08/11/2025<br>13:33:19</td>
-                                <td><span class="badge-est est-cerrada">CERRADA</span></td>
-                                <td><span class="val-badge">$1000,00</span></td>
-                                <td><span class="val-total-c">$0,00</span></td>
-                                <td><span class="diff-zero">$0,00</span></td>
-                                <td><strong>Apertura:</strong> Usuario 1<br><strong>Cierre:</strong> Usuario 1</td>
-                            </tr>
-                        </tbody>
-                    </table>
+                    <div class="table-responsive-container">
+                        <table class="hist-table">
+                            <thead>
+                                <tr>
+                                    <th>ID</th>
+                                    <th>Caja</th>
+                                    <th>Tipo</th>
+                                    <th>Fecha Apertura</th>
+                                    <th>Fecha Cierre</th>
+                                    <th>Estado</th>
+                                    <th>Saldo Inicial</th>
+                                    <th>Saldo Final</th>
+                                    <th>Diferencia</th>
+                                    <th>Usuario</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <!-- Row 1 (Open) -->
+                                <tr class="row-open">
+                                    <td style="font-weight: 700;">#24</td>
+                                    <td>
+                                        <strong>CAJA002</strong><br>
+                                        <small style="color: #64748b;">CAJA SECUNDARIA</small>
+                                    </td>
+                                    <td><span class="badge-tipo bg-apert"><i class="fas fa-lock-open"></i>
+                                            APERTURA</span>
+                                    </td>
+                                    <td>10/11/2025<br>20:46:56</td>
+                                    <td style="color: #cbd5e1;">--</td>
+                                    <td><span class="badge-est est-abierta">ABIERTA</span></td>
+                                    <td><span class="val-badge">$0,00</span></td>
+                                    <td style="color: #cbd5e1;">--</td>
+                                    <td style="color: #cbd5e1;">--</td>
+                                    <td><strong>Apertura:</strong> Usuario 3</td>
+                                </tr>
+                                <!-- Row 2 (Closed with Profit) -->
+                                <tr class="row-closed-profit">
+                                    <td style="font-weight: 700;">#23</td>
+                                    <td>
+                                        <strong>CAJA001</strong><br>
+                                        <small style="color: #64748b;">Caja Principal</small>
+                                    </td>
+                                    <td><span class="badge-tipo bg-cierr"><i class="fas fa-lock"></i> CIERRE</span></td>
+                                    <td>09/11/2025<br>19:41:24</td>
+                                    <td>09/11/2025<br>19:45:36</td>
+                                    <td><span class="badge-est est-cerrada">CERRADA</span></td>
+                                    <td><span class="val-badge">$50,00</span></td>
+                                    <td><span class="val-total-c">$52,50</span></td>
+                                    <td><span class="diff-pos">+$2,50</span></td>
+                                    <td><strong>Apertura:</strong> Usuario 1<br><strong>Cierre:</strong> Usuario 1</td>
+                                </tr>
+                                <!-- Row 3 (Closed Default) -->
+                                <tr class="row-closed">
+                                    <td style="font-weight: 700;">#21</td>
+                                    <td>
+                                        <strong>CAJA001</strong><br>
+                                        <small style="color: #64748b;">Caja Principal</small>
+                                    </td>
+                                    <td><span class="badge-tipo bg-cierr"><i class="fas fa-lock"></i> CIERRE</span></td>
+                                    <td>08/11/2025<br>18:30:21</td>
+                                    <td>08/11/2025<br>13:33:19</td>
+                                    <td><span class="badge-est est-cerrada">CERRADA</span></td>
+                                    <td><span class="val-badge">$1000,00</span></td>
+                                    <td><span class="val-total-c">$0,00</span></td>
+                                    <td><span class="diff-zero">$0,00</span></td>
+                                    <td><strong>Apertura:</strong> Usuario 1<br><strong>Cierre:</strong> Usuario 1</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
                 </div>
             </div>
         </main>

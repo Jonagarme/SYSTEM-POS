@@ -203,6 +203,45 @@ $cajas = [
             color: #dc2626;
             border-color: #dc2626;
         }
+
+        /* RESPONSIVE STYLES */
+        @media (max-width: 992px) {
+            .summary-grid-cajas {
+                grid-template-columns: repeat(2, 1fr);
+            }
+        }
+
+        @media (max-width: 768px) {
+            .cajas-header {
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 15px;
+            }
+
+            .header-btns {
+                flex-direction: column;
+                width: 100%;
+            }
+
+            .btn-caja-action {
+                width: 100%;
+                justify-content: center;
+            }
+
+            .summary-grid-cajas {
+                grid-template-columns: 1fr;
+            }
+
+            .table-responsive-container {
+                width: 100%;
+                overflow-x: auto;
+                -webkit-overflow-scrolling: touch;
+            }
+
+            .c-table {
+                min-width: 600px;
+            }
+        }
     </style>
 </head>
 
@@ -264,35 +303,37 @@ $cajas = [
                     <div class="table-header-custom">
                         <i class="fas fa-list-ul"></i> Listado de Cajas
                     </div>
-                    <table class="c-table">
-                        <thead>
-                            <tr>
-                                <th>Código</th>
-                                <th>Nombre</th>
-                                <th>Estado</th>
-                                <th>Acciones</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            <?php foreach ($cajas as $c): ?>
+                    <div class="table-responsive-container">
+                        <table class="c-table">
+                            <thead>
                                 <tr>
-                                    <td style="color: #2563eb; font-weight: 700;"><?php echo $c['codigo']; ?></td>
-                                    <td style="font-weight: 600;"><?php echo $c['nombre']; ?></td>
-                                    <td>
-                                        <span class="badge-active"><i class="fas fa-check"></i> Activa</span>
-                                    </td>
-                                    <td>
-                                        <div class="action-btns-c">
-                                            <button class="btn-act edit"><i class="fas fa-edit"></i></button>
-                                            <button class="btn-act pause"><i class="fas fa-pause"></i></button>
-                                            <button class="btn-act lock"><i class="fas fa-lock"></i></button>
-                                            <button class="btn-act delete"><i class="fas fa-trash"></i></button>
-                                        </div>
-                                    </td>
+                                    <th>Código</th>
+                                    <th>Nombre</th>
+                                    <th>Estado</th>
+                                    <th>Acciones</th>
                                 </tr>
-                            <?php endforeach; ?>
-                        </tbody>
-                    </table>
+                            </thead>
+                            <tbody>
+                                <?php foreach ($cajas as $c): ?>
+                                    <tr>
+                                        <td style="color: #2563eb; font-weight: 700;"><?php echo $c['codigo']; ?></td>
+                                        <td style="font-weight: 600;"><?php echo $c['nombre']; ?></td>
+                                        <td>
+                                            <span class="badge-active"><i class="fas fa-check"></i> Activa</span>
+                                        </td>
+                                        <td>
+                                            <div class="action-btns-c">
+                                                <button class="btn-act edit"><i class="fas fa-edit"></i></button>
+                                                <button class="btn-act pause"><i class="fas fa-pause"></i></button>
+                                                <button class="btn-act lock"><i class="fas fa-lock"></i></button>
+                                                <button class="btn-act delete"><i class="fas fa-trash"></i></button>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                <?php endforeach; ?>
+                            </tbody>
+                        </table>
+                    </div>
                 </div>
             </div>
         </main>

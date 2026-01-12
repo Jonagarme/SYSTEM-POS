@@ -165,6 +165,24 @@ $current_page = 'caja_estado';
             border-radius: 8px;
             border: 1px solid #f1f5f9;
         }
+
+        /* RESPONSIVE STYLES */
+        @media (max-width: 1024px) {
+            .main-grid-estado {
+                grid-template-columns: 1fr 1fr;
+            }
+        }
+
+        @media (max-width: 768px) {
+            .main-grid-estado {
+                grid-template-columns: 1fr;
+            }
+
+            .header-estado h1 {
+                font-size: 1.25rem;
+                text-align: center;
+            }
+        }
     </style>
 </head>
 

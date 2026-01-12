@@ -204,6 +204,33 @@ $saldo_esperado = 150.50; // Example system balance
             display: flex;
             justify-content: center;
         }
+
+        /* RESPONSIVE STYLES */
+        @media (max-width: 992px) {
+            .arqueo-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .denominations-grid {
+                gap: 15px;
+            }
+        }
+
+        @media (max-width: 600px) {
+            .denominations-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .arqueo-header {
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 15px;
+            }
+
+            .btn-cancel {
+                width: 100%;
+            }
+        }
     </style>
 </head>
 
