@@ -461,25 +461,65 @@ session_start();
             startVerification();
         }
 
-        // Logic 2: SRI Query
-        document.getElementById('btn-query-sri').onclick = function () {
-            const clave = document.querySelector('.clave-acceso-input').value;
+        // Logic 2: SRI Query - Official SRI (SOAP via backend)
+        document.getElementById('btn-query-sri').onclick = async function () {
+            const clave = document.querySelector('.clave-acceso-input').value.trim();
             if (clave.length !== 49) {
                 alert("La clave de acceso debe tener 49 dígitos.");
                 return;
             }
-            this.disabled = true;
-            this.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Consultando...';
+            
+            const btn = this;
+            btn.disabled = true;
+            btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Consultando...';
 
-            setTimeout(() => {
-                alert("SRI: Conectado. Extrayendo comprobante...");
-                // Aquí se llamaría a un servicio backend que use cURL para consultar el SRI
-                // Simulamos éxito si la clave termina en 1
-                this.innerHTML = '<i class="fas fa-globe"></i> Consultar Base SRI';
-                this.disabled = false;
-                alert("Simulación: Comprobante obtenido. Procesando datos...");
-                // Simularíamos cargar un XML
-            }, 1500);
+            try {
+                // Consultar al SRI oficial a través del backend (SOAP)
+                const controller = new AbortController();
+                const timeoutId = setTimeout(() => controller.abort(), 30000);
+
+                const response = await fetch(`api_query_sri_oficial.php?clave=${encodeURIComponent(clave)}`, {
+                    signal: controller.signal
+                });
+                
+                clearTimeout(timeoutId);
+
+                if (!response.ok) {
+                    throw new Error(`Error HTTP: ${response.status}`);
+                }
+
+                const result = await response.json();
+
+                if (result.success && result.data) {
+                    const data = result.data;
+                    if (data.estado === 'AUTORIZADO' && data.comprobante) {
+                        alert("✓ Comprobante recuperado exitosamente.");
+                        parseXML(data.comprobante);
+                    } else {
+                        let extra = '';
+                        if (data.mensajes) {
+                            extra = '\n\nMensajes: ' + JSON.stringify(data.mensajes);
+                        }
+                        alert(`✗ Estado del comprobante: ${data.estado || 'DESCONOCIDO'}. Verifica que la clave sea correcta.${extra}`);
+                    }
+                } else {
+                    const errorMsg = result.error || 'Error desconocido al consultar el SRI';
+                    alert(`✗ ${errorMsg}`);
+                    if (result.debug) {
+                        console.error('Debug info:', result.debug);
+                    }
+                }
+            } catch (error) {
+                if (error.name === 'AbortError') {
+                    alert("✗ La consulta ha excedido el tiempo de espera (30s). Por favor, intenta nuevamente.");
+                } else {
+                    alert(`✗ Error de conexión: ${error.message}. Verifica tu conexión a internet.`);
+                }
+                console.error('Error al consultar SRI:', error);
+            } finally {
+                btn.innerHTML = '<i class="fas fa-globe"></i> Consultar Base SRI';
+                btn.disabled = false;
+            }
         };
 
         function switchTab(num) {
