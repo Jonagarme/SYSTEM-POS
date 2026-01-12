@@ -231,8 +231,7 @@ session_start();
                         <!-- Data Section -->
                         <div id="review-data" style="display:none;">
                             <!-- Estadísticas Rápidas -->
-                            <div
-                                style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 20px; margin-bottom: 30px;">
+                            <div class="stats-grid">
                                 <div class="stats-box">
                                     <span class="stats-val" id="stat-total-items">0</span>
                                     <span class="stats-label">Productos Hallados</span>
@@ -253,10 +252,10 @@ session_start();
                             </div>
 
                             <div
-                                style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                                style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; flex-wrap: wrap; gap: 15px;">
                                 <h3 style="font-weight: 700; color: #1e293b; margin:0;"><i class="fas fa-list-check"
-                                        style="margin-right: 12px;"></i>Detalle de Productos</h3>
-                                <div style="display:flex; gap: 10px;">
+                                         style="margin-right: 12px;"></i>Detalle de Productos</h3>
+                                <div class="header-actions">
                                     <button class="btn btn-outline-primary" id="btn-select-all"><i
                                             class="fas fa-check-double"></i> Seleccionar Todo</button>
                                     <button class="btn btn-outline-secondary" id="btn-deselect-all"><i
@@ -271,8 +270,7 @@ session_start();
                             <!-- Validación de Totales -->
                             <div style="background: white; border-radius: 20px; padding: 25px; box-shadow: 0 10px 30px rgba(0,0,0,0.05); margin-top: 40px; border: 2px solid #f1f5f9;"
                                 id="footer-validation">
-                                <div
-                                    style="display: grid; grid-template-columns: 1fr 1fr 1.5fr; gap: 40px; align-items: center;">
+                                <div class="validation-footer-grid">
                                     <div style="text-align: center; border-right: 1px solid #f1f5f9;">
                                         <small
                                             style="color: #64748b; text-transform: uppercase; font-weight: 600;">Total
@@ -296,13 +294,10 @@ session_start();
                                         </div>
                                     </div>
                                 </div>
-                                <div style="margin-top: 30px; display: flex; justify-content: flex-end; gap: 15px;">
-                                    <button class="btn btn-secondary btn-premium" onclick="location.reload()">Cancelar
-                                        Operación</button>
-                                    <button class="btn-premium btn-premium-primary" id="btn-finalize-import"
-                                        style="padding: 15px 50px; font-size: 1.1rem;" disabled>
-                                        <i class="fas fa-save" style="margin-right: 10px;"></i>Procesar e Ingresar a
-                                        Inventario
+                                <div class="validation-footer-actions">
+                                    <button class="btn btn-secondary btn-premium" onclick="location.reload()">Cancelar</button>
+                                    <button class="btn btn-premium btn-premium-success" id="btn-finalize-import" disabled>
+                                        <i class="fas fa-file-import" style="margin-right: 10px;"></i>Finalizar e Importar Inventario
                                     </button>
                                 </div>
                             </div>
@@ -468,7 +463,7 @@ session_start();
                 alert("La clave de acceso debe tener 49 dígitos.");
                 return;
             }
-            
+
             const btn = this;
             btn.disabled = true;
             btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Consultando...';
@@ -481,7 +476,7 @@ session_start();
                 const response = await fetch(`api_query_sri_oficial.php?clave=${encodeURIComponent(clave)}`, {
                     signal: controller.signal
                 });
-                
+
                 clearTimeout(timeoutId);
 
                 if (!response.ok) {
@@ -696,27 +691,27 @@ session_start();
                 const suggestedPVP = (p.costo * 1.3).toFixed(2);
                 const html = `
                     <div class="producto-row" id="row-${idx}">
-                        <div style="display: flex; gap: 20px; align-items: flex-start;">
+                        <div class="producto-row-content">
                             <input type="checkbox" checked class="item-chk" data-idx="${idx}" style="width: 20px; height: 20px; margin-top: 5px;">
-                            <div style="flex: 1;">
-                                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                            <div style="flex: 1; width: 100%;">
+                                <div class="producto-row-header">
                                     <div>
                                         <span class="badge-status ${p.isNew ? 'badge-new' : 'badge-existente'}">
                                             ${p.isNew ? '<i class="fas fa-plus"></i> NUEVO' : '<i class="fas fa-link"></i> EXISTENTE'}
                                         </span>
-                                        <strong style="margin-left: 10px; font-size: 1.1rem; color: #1e293b;">
+                                        <strong class="product-title-mobile" style="margin-left: 10px; font-size: 1.1rem; color: #1e293b;">
                                             ${p.isNew ? p.nombre : (p.selectedMatch ? p.selectedMatch.nombre : p.nombre)}
                                         </strong>
                                     </div>
-                                    <div style="text-align: right;">
-                                        <small style="color: #64748b;">Código: ${p.codigo}</small>
+                                    <div class="product-meta-mobile" style="text-align: right;">
+                                        <small style="color: #64748b; display: block;">Código: ${p.codigo}</small>
                                         ${p.matches && p.matches.length > 0 ?
                         `<div class="badge-match" onclick="openMatchModal(${idx})"><i class="fas fa-plug"></i> Vincular / Cambiar</div>`
                         : ''}
                                     </div>
                                 </div>
                                 
-                                <div style="display: flex; gap: 30px; font-size: 0.95rem;">
+                                <div class="price-grid">
                                     <div class="price-card">
                                         <small style="display:block; color:#64748b;">Cant. Facturada</small>
                                         <strong style="color: #6366f1; font-size: 1.1rem;">${p.cantidad}</strong>
