@@ -311,6 +311,55 @@ $facturas_count = count($facturas);
             font-weight: 600;
             color: #0f172a;
         }
+
+        /* RESPONSIVE STYLES */
+        @media (max-width: 992px) {
+            .ef-filter-grid {
+                grid-template-columns: 1fr 1fr;
+            }
+
+            .invoice-header-grid {
+                grid-template-columns: 1fr !important;
+                gap: 20px !important;
+            }
+        }
+
+        @media (max-width: 768px) {
+            .ef-header-banner {
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 15px;
+            }
+
+            .ef-header-banner p {
+                margin-left: 0;
+            }
+
+            .ef-filter-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .table-responsive-container {
+                width: 100%;
+                overflow-x: auto;
+                -webkit-overflow-scrolling: touch;
+                border-radius: 12px;
+                box-shadow: var(--shadow-sm);
+            }
+
+            .ef-table {
+                min-width: 1000px;
+                /* Forzar scroll para ver todas las celdas de facturación */
+            }
+
+            .summary-row {
+                justify-content: center;
+            }
+
+            .summary-box {
+                width: 100%;
+            }
+        }
     </style>
 </head>
 
@@ -360,64 +409,68 @@ $facturas_count = count($facturas);
                     </form>
                 </div>
 
-                <table class="ef-table">
-                    <thead>
-                        <tr>
-                            <th>ID</th>
-                            <th>Número Factura</th>
-                            <th>Cliente</th>
-                            <th>Fecha Emisión</th>
-                            <th>Total</th>
-                            <th>Estado</th>
-                            <th>Autorización</th>
-                            <th>Acciones</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <?php foreach ($facturas as $f): ?>
+                <div class="table-responsive-container">
+                    <table class="ef-table">
+                        <thead>
                             <tr>
-                                <td>
-                                    <?php echo $f['id']; ?>
-                                </td>
-                                <td style="font-weight: 700; color: #2563eb;">
-                                    <?php echo $f['numeroFactura']; ?>
-                                </td>
-                                <td>
-                                    <?php echo htmlspecialchars($f['cliente_nombre'] ?? 'CONSUMIDOR FINAL'); ?>
-                                </td>
-                                <td>
-                                    <?php echo date('d/m/Y H:i', strtotime($f['fechaEmision'])); ?>
-                                </td>
-                                <td style="font-weight: 800;">$
-                                    <?php echo number_format($f['total'], 2); ?>
-                                </td>
-                                <td><span class="badge-pagada">
-                                        <?php echo $f['estado']; ?>
-                                    </span></td>
-                                <td style="font-size: 0.75rem; color: #64748b;">
-                                    <?php echo $f['numeroAutorizacion'] ?: 'Sin autorización'; ?>
-                                </td>
-                                <td>
-                                    <div class="action-btns">
-                                        <button class="btn-action btn-eye"
-                                            onclick="showInvoiceDetail(<?php echo $f['id']; ?>)"><i
-                                                class="fas fa-eye"></i></button>
-                                        <button class="btn-action btn-print"><i class="fas fa-print"></i></button>
-                                        <div class="dropdown">
-                                            <button class="btn-action btn-dots"><i class="fas fa-ellipsis-v"></i></button>
-                                            <div class="dropdown-content">
-                                                <div class="dropdown-item"><i class="fas fa-paper-plane"
-                                                        style="color: #3b82f6;"></i> Enviar al SRI</div>
-                                                <div class="dropdown-item danger"><i class="fas fa-times-circle"></i> Anular
-                                                    Factura</div>
+                                <th>ID</th>
+                                <th>Número Factura</th>
+                                <th>Cliente</th>
+                                <th>Fecha Emisión</th>
+                                <th>Total</th>
+                                <th>Estado</th>
+                                <th>Autorización</th>
+                                <th>Acciones</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <?php foreach ($facturas as $f): ?>
+                                <tr>
+                                    <td>
+                                        <?php echo $f['id']; ?>
+                                    </td>
+                                    <td style="font-weight: 700; color: #2563eb;">
+                                        <?php echo $f['numeroFactura']; ?>
+                                    </td>
+                                    <td>
+                                        <?php echo htmlspecialchars($f['cliente_nombre'] ?? 'CONSUMIDOR FINAL'); ?>
+                                    </td>
+                                    <td>
+                                        <?php echo date('d/m/Y H:i', strtotime($f['fechaEmision'])); ?>
+                                    </td>
+                                    <td style="font-weight: 800;">$
+                                        <?php echo number_format($f['total'], 2); ?>
+                                    </td>
+                                    <td><span class="badge-pagada">
+                                            <?php echo $f['estado']; ?>
+                                        </span></td>
+                                    <td style="font-size: 0.75rem; color: #64748b;">
+                                        <?php echo $f['numeroAutorizacion'] ?: 'Sin autorización'; ?>
+                                    </td>
+                                    <td>
+                                        <div class="action-btns">
+                                            <button class="btn-action btn-eye"
+                                                onclick="showInvoiceDetail(<?php echo $f['id']; ?>)"><i
+                                                    class="fas fa-eye"></i></button>
+                                            <button class="btn-action btn-print"><i class="fas fa-print"></i></button>
+                                            <div class="dropdown">
+                                                <button class="btn-action btn-dots"><i
+                                                        class="fas fa-ellipsis-v"></i></button>
+                                                <div class="dropdown-content">
+                                                    <div class="dropdown-item"><i class="fas fa-paper-plane"
+                                                            style="color: #3b82f6;"></i> Enviar al SRI</div>
+                                                    <div class="dropdown-item danger"><i class="fas fa-times-circle"></i>
+                                                        Anular
+                                                        Factura</div>
+                                                </div>
                                             </div>
                                         </div>
-                                    </div>
-                                </td>
-                            </tr>
-                        <?php endforeach; ?>
-                    </tbody>
-                </table>
+                                    </td>
+                                </tr>
+                            <?php endforeach; ?>
+                        </tbody>
+                    </table>
+                </div>
             </div>
         </main>
     </div>

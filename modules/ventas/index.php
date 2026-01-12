@@ -235,6 +235,52 @@ $ventas_count = count($ventas);
             font-weight: 600;
             color: #0f172a;
         }
+
+        /* RESPONSIVE STYLES */
+        @media (max-width: 992px) {
+            .sale-detail-grid {
+                grid-template-columns: 1fr;
+                gap: 20px;
+            }
+        }
+
+        @media (max-width: 768px) {
+            .sales-header-banner {
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 15px;
+            }
+
+            .pos-panel .panel-body form div[style*="grid-template-columns"] {
+                grid-template-columns: 1fr !important;
+            }
+
+            .pos-panel .panel-body div[style*="justify-content: flex-end"] {
+                justify-content: center !important;
+            }
+
+            .content-wrapper {
+                padding: 15px;
+            }
+
+            /* Contenedor para scroll de tabla */
+            .table-responsive-container {
+                width: 100%;
+                overflow-x: auto;
+                -webkit-overflow-scrolling: touch;
+                border-radius: 12px;
+                box-shadow: var(--shadow-sm);
+            }
+
+            .sales-table {
+                min-width: 800px;
+                /* Forzar scroll horizontal en móviles */
+            }
+
+            .sales-header-banner p {
+                margin-left: 0;
+            }
+        }
     </style>
 </head>
 
@@ -303,70 +349,72 @@ $ventas_count = count($ventas);
                 </div>
 
                 <!-- Sales Table -->
-                <table class="sales-table">
-                    <thead>
-                        <tr>
-                            <th>ID</th>
-                            <th>Número Venta</th>
-                            <th>Cliente</th>
-                            <th>Fecha Venta</th>
-                            <th>Total</th>
-                            <th>Estado</th>
-                            <th>Método Pago</th>
-                            <th>Tipo</th>
-                            <th>Vendedor</th>
-                            <th>Acciones</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <?php foreach ($ventas as $v): ?>
+                <div class="table-responsive-container">
+                    <table class="sales-table">
+                        <thead>
                             <tr>
-                                <td>
-                                    <?php echo $v['id']; ?>
-                                </td>
-                                <td style="font-weight: 700; color: #0061f2;">
-                                    <?php echo $v['numeroFactura']; ?>
-                                </td>
-                                <td>
-                                    <?php echo htmlspecialchars($v['cliente_nombre'] ?? 'CONSUMIDOR FINAL'); ?>
-                                </td>
-                                <td>
-                                    <?php echo date('d/m/Y H:i', strtotime($v['fechaEmision'])); ?>
-                                </td>
-                                <td style="font-weight: 800;">$
-                                    <?php echo number_format($v['total'], 2); ?>
-                                </td>
-                                <td>
-                                    <span
-                                        class="badge-status <?php echo $v['estado'] == 'PAGADA' ? 'badge-pagada' : ''; ?>">
-                                        <?php echo $v['estado']; ?>
-                                    </span>
-                                </td>
-                                <td>
-                                    ELECTRONICO
-                                </td>
-                                <td>
-                                    <span class="badge-status badge-factura"> FACTURA </span>
-                                </td>
-                                <td>
-                                    <?php echo htmlspecialchars($v['vendedor_nombre'] ?? 'Admin'); ?>
-                                </td>
-                                <td>
-                                    <div style="display: flex; gap: 5px;">
-                                        <button class="btn-table-action btn-view"
-                                            onclick="showSaleDetail(<?php echo $v['id']; ?>)" title="Ver Detalle Rápido"><i
-                                                class="fas fa-eye"></i></button>
-                                        <a href="ver_factura.php?id=<?php echo $v['id']; ?>"
-                                            class="btn-table-action btn-pdf" title="Ver Factura Completa"><i
-                                                class="fas fa-file-invoice"></i></a>
-                                        <button class="btn-table-action btn-delete" title="Anular"><i
-                                                class="fas fa-trash-alt"></i></button>
-                                    </div>
-                                </td>
+                                <th>ID</th>
+                                <th>Número Venta</th>
+                                <th>Cliente</th>
+                                <th>Fecha Venta</th>
+                                <th>Total</th>
+                                <th>Estado</th>
+                                <th>Método Pago</th>
+                                <th>Tipo</th>
+                                <th>Vendedor</th>
+                                <th>Acciones</th>
                             </tr>
-                        <?php endforeach; ?>
-                    </tbody>
-                </table>
+                        </thead>
+                        <tbody>
+                            <?php foreach ($ventas as $v): ?>
+                                <tr>
+                                    <td>
+                                        <?php echo $v['id']; ?>
+                                    </td>
+                                    <td style="font-weight: 700; color: #0061f2;">
+                                        <?php echo $v['numeroFactura']; ?>
+                                    </td>
+                                    <td>
+                                        <?php echo htmlspecialchars($v['cliente_nombre'] ?? 'CONSUMIDOR FINAL'); ?>
+                                    </td>
+                                    <td>
+                                        <?php echo date('d/m/Y H:i', strtotime($v['fechaEmision'])); ?>
+                                    </td>
+                                    <td style="font-weight: 800;">$
+                                        <?php echo number_format($v['total'], 2); ?>
+                                    </td>
+                                    <td>
+                                        <span
+                                            class="badge-status <?php echo $v['estado'] == 'PAGADA' ? 'badge-pagada' : ''; ?>">
+                                            <?php echo $v['estado']; ?>
+                                        </span>
+                                    </td>
+                                    <td>
+                                        ELECTRONICO
+                                    </td>
+                                    <td>
+                                        <span class="badge-status badge-factura"> FACTURA </span>
+                                    </td>
+                                    <td>
+                                        <?php echo htmlspecialchars($v['vendedor_nombre'] ?? 'Admin'); ?>
+                                    </td>
+                                    <td>
+                                        <div style="display: flex; gap: 5px;">
+                                            <button class="btn-table-action btn-view"
+                                                onclick="showSaleDetail(<?php echo $v['id']; ?>)"
+                                                title="Ver Detalle Rápido"><i class="fas fa-eye"></i></button>
+                                            <a href="ver_factura.php?id=<?php echo $v['id']; ?>"
+                                                class="btn-table-action btn-pdf" title="Ver Factura Completa"><i
+                                                    class="fas fa-file-invoice"></i></a>
+                                            <button class="btn-table-action btn-delete" title="Anular"><i
+                                                    class="fas fa-trash-alt"></i></button>
+                                        </div>
+                                    </td>
+                                </tr>
+                            <?php endforeach; ?>
+                        </tbody>
+                    </table>
+                </div>
             </div>
         </main>
     </div>

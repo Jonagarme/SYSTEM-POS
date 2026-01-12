@@ -275,6 +275,64 @@ $metodos_pago = [
             background: #4f46e5;
             color: white;
         }
+
+        /* RESPONSIVE STYLES */
+        @media (max-width: 1024px) {
+            .summary-stats {
+                grid-template-columns: repeat(2, 1fr);
+            }
+            .report-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        @media (max-width: 768px) {
+            .report-header-banner {
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 20px;
+                padding: 20px;
+            }
+
+            .report-header-banner p {
+                margin-left: 0;
+            }
+
+            .date-filter-row {
+                flex-direction: column;
+                gap: 15px;
+                align-items: flex-start;
+            }
+
+            .filter-group {
+                flex-wrap: wrap;
+                width: 100%;
+            }
+
+            .filter-group input[type="date"] {
+                flex: 1;
+                min-width: 120px;
+            }
+
+            .summary-stats {
+                grid-template-columns: 1fr;
+            }
+
+            .table-responsive-container {
+                width: 100%;
+                overflow-x: auto;
+                -webkit-overflow-scrolling: touch;
+                border-radius: 12px;
+            }
+
+            .consolidated-table {
+                min-width: 600px;
+            }
+
+            .report-grid {
+                gap: 15px;
+            }
+        }
     </style>
 </head>
 
@@ -354,35 +412,37 @@ $metodos_pago = [
                 <div class="report-grid">
                     <div class="pos-panel" style="padding: 25px;">
                         <h3 class="panel-title"><i class="fas fa-calendar-alt"></i> Movimientos por Día</h3>
-                        <table class="consolidated-table">
-                            <thead>
-                                <tr>
-                                    <th>Fecha</th>
-                                    <th>Transacciones</th>
-                                    <th>Subtotal</th>
-                                    <th>IVA</th>
-                                    <th>Total</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                <?php foreach ($consolidado as $c): ?>
+                        <div class="table-responsive-container">
+                            <table class="consolidated-table">
+                                <thead>
                                     <tr>
-                                        <td><?php echo date('d/m/Y', strtotime($c['fecha'])); ?></td>
-                                        <td><?php echo $c['ventas']; ?></td>
-                                        <td>$ <?php echo number_format($c['subtotal'], 2); ?></td>
-                                        <td>$ <?php echo number_format($c['iva'], 2); ?></td>
-                                        <td style="font-weight: 700;">$ <?php echo number_format($c['total'], 2); ?></td>
+                                        <th>Fecha</th>
+                                        <th>Transacciones</th>
+                                        <th>Subtotal</th>
+                                        <th>IVA</th>
+                                        <th>Total</th>
                                     </tr>
-                                <?php endforeach; ?>
-                                <tr>
-                                    <td>TOTAL PERIODO</td>
-                                    <td><?php echo $stats['total_ventas']; ?></td>
-                                    <td>$ <?php echo number_format($stats['sum_subtotal'] ?? 0, 2); ?></td>
-                                    <td>$ <?php echo number_format($stats['sum_iva'] ?? 0, 2); ?></td>
-                                    <td>$ <?php echo number_format($stats['sum_total'] ?? 0, 2); ?></td>
-                                </tr>
-                            </tbody>
-                        </table>
+                                </thead>
+                                <tbody>
+                                    <?php foreach ($consolidado as $c): ?>
+                                        <tr>
+                                            <td><?php echo date('d/m/Y', strtotime($c['fecha'])); ?></td>
+                                            <td><?php echo $c['ventas']; ?></td>
+                                            <td>$ <?php echo number_format($c['subtotal'], 2); ?></td>
+                                            <td>$ <?php echo number_format($c['iva'], 2); ?></td>
+                                            <td style="font-weight: 700;">$ <?php echo number_format($c['total'], 2); ?></td>
+                                        </tr>
+                                    <?php endforeach; ?>
+                                    <tr>
+                                        <td>TOTAL PERIODO</td>
+                                        <td><?php echo $stats['total_ventas']; ?></td>
+                                        <td>$ <?php echo number_format($stats['sum_subtotal'] ?? 0, 2); ?></td>
+                                        <td>$ <?php echo number_format($stats['sum_iva'] ?? 0, 2); ?></td>
+                                        <td>$ <?php echo number_format($stats['sum_total'] ?? 0, 2); ?></td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
                     </div>
 
                     <div class="pos-panel" style="padding: 25px;">
