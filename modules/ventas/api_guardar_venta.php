@@ -1,6 +1,7 @@
 <?php
 header('Content-Type: application/json');
 require_once '../../includes/db.php';
+require_once '../../includes/logifact_api.php';
 session_start();
 
 // Obtener datos del POST
@@ -71,7 +72,20 @@ try {
     }
 
     $pdo->commit();
-    echo json_encode(['success' => true, 'id' => $idVenta, 'numero' => $numFactura]);
+
+    // 4. Forward to Logifact API
+    $token = LogifactAPI::login();
+    $external_res = null;
+    if ($token) {
+        $external_res = LogifactAPI::sendInvoice($venta, $token);
+    }
+
+    echo json_encode([
+        'success' => true,
+        'id' => $idVenta,
+        'numero' => $numFactura,
+        'external' => $external_res
+    ]);
 
 } catch (Exception $e) {
     if ($pdo->inTransaction())
