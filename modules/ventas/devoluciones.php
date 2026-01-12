@@ -178,6 +178,39 @@ $current_page = 'ventas_devoluciones';
             cursor: pointer;
             flex: 1;
         }
+
+        /* RESPONSIVE STYLES */
+        @media (max-width: 768px) {
+            .returns-header {
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 15px;
+            }
+
+            .summary-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .filter-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .filter-actions {
+                flex-direction: column;
+                width: 100%;
+            }
+
+            .btn-green-lg {
+                width: 100%;
+                justify-content: center;
+            }
+
+            .table-responsive-container {
+                width: 100%;
+                overflow-x: auto;
+                -webkit-overflow-scrolling: touch;
+            }
+        }
     </style>
 </head>
 
