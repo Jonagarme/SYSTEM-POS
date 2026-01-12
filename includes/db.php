@@ -2,14 +2,20 @@
 /**
  * Database Connection configuration
  */
-if ($_SERVER['HTTP_HOST'] == 'localhost' || $_SERVER['HTTP_HOST'] == '127.0.0.1') {
-    // Configuración Local
+// Detectar si estamos en local (localhost, 127.0.0.1 o IPs locales)
+$isLocal = ($_SERVER['HTTP_HOST'] == 'localhost' ||
+    strpos($_SERVER['HTTP_HOST'], 'localhost:') === 0 ||
+    $_SERVER['REMOTE_ADDR'] == '127.0.0.1' ||
+    $_SERVER['REMOTE_ADDR'] == '::1');
+
+if ($isLocal) {
+    // Configuración Local (Tu PC)
     $host = 'localhost';
     $db = 'logipharmbd';
     $user = 'root';
     $pass = '0801';
 } else {
-    // Configuración InfinityFree
+    // Configuración InfinityFree (Hosting)
     $host = 'sql113.infinityfree.com';
     $db = 'if0_40888759_logipharmdb';
     $user = 'if0_40888759';
