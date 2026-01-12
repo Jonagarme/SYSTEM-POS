@@ -237,6 +237,12 @@ $date_now = date('d/m/Y H:i');
                         <i class="fas fa-user-circle"></i>
                         <span>USUARIO: <strong><?php echo $user_name; ?></strong></span>
                     </div>
+                    <!-- Offline/Sync Status Indicator -->
+                    <div id="offline-sync-indicator" class="system-info-item"
+                        title="Estado de conexión y sincronización">
+                        <i class="fas fa-wifi text-success"></i>
+                        <span>Detectando...</span>
+                    </div>
                 </header>
 
                 <!-- 2. Tabs Bar -->
@@ -702,6 +708,9 @@ $date_now = date('d/m/Y H:i');
     </main> <!-- .main-content -->
     </div> <!-- .app-container -->
     <?php include $root . 'includes/scripts.php'; ?>
+    <!-- Offline Support Libraries -->
+    <script src="https://cdn.jsdelivr.net/npm/dexie@3.2.4/dist/dexie.min.js"></script>
+    <script src="../../assets/js/offline-manager.js"></script>
     <script>
         const modal = document.getElementById('modal-cliente');
         const btnOpen = document.getElementById('btn-nuevo-cliente');
@@ -884,6 +893,10 @@ $date_now = date('d/m/Y H:i');
 
             fetch(`search_api.php?action=search_products&q=${encodeURIComponent(query)}`)
                 .then(r => r.json())
+                .catch(async () => {
+                    console.log("Servidor no disponible, buscando en base local...");
+                    return await OfflineManager.searchProducts(query);
+                })
                 .then(data => {
                     productGrid.innerHTML = '';
                     if (data.length === 0) {
@@ -920,6 +933,10 @@ $date_now = date('d/m/Y H:i');
 
             fetch(`search_api.php?action=search_clients&q=${encodeURIComponent(query)}`)
                 .then(r => r.json())
+                .catch(async () => {
+                    console.log("Servidor no disponible, buscando clientes localmente...");
+                    return await OfflineManager.searchClients(query);
+                })
                 .then(data => {
                     if (data.length > 0) {
                         selectClient(data[0]);
@@ -1116,15 +1133,10 @@ $date_now = date('d/m/Y H:i');
 
             console.log("JSON a enviar:", saleData);
 
-            fetch('api_guardar_venta.php', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    data: saleData.data,
-                    cliente_id: sale.client.id
-                })
+            OfflineManager.saveSale({
+                data: saleData.data,
+                cliente_id: sale.client.id
             })
-                .then(res => res.json())
                 .then(res => {
                     if (res.success) {
                         // 3. Poblar Ticket Térmico
@@ -1148,6 +1160,10 @@ $date_now = date('d/m/Y H:i');
 
                         // 4. Mostrar Modal de Éxito/Ticket
                         document.getElementById('modal-ticket').style.display = 'flex';
+
+                        if (res.offline) {
+                            alert("AVISO: " + res.message);
+                        }
 
                         // Vaciar carrito
                         if (sales.length > 1) {
