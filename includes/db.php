@@ -2,10 +2,19 @@
 /**
  * Database Connection configuration
  */
-$host = 'localhost';
-$db = 'logipharmbd';
-$user = 'root';
-$pass = '0801';
+if ($_SERVER['HTTP_HOST'] == 'localhost' || $_SERVER['HTTP_HOST'] == '127.0.0.1') {
+    // Configuración Local
+    $host = 'localhost';
+    $db = 'logipharmbd';
+    $user = 'root';
+    $pass = '0801';
+} else {
+    // Configuración InfinityFree
+    $host = 'sql113.infinityfree.com';
+    $db = 'if0_40888759_logipharmdb';
+    $user = 'if0_40888759';
+    $pass = '0801jona';
+}
 $charset = 'utf8mb4';
 
 $dsn = "mysql:host=$host;dbname=$db;charset=$charset";
