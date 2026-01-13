@@ -201,6 +201,221 @@ $date_now = date('d/m/Y H:i');
             gap: 15px;
             justify-content: center;
         }
+
+        /* PREMIUM HEADER STYLES */
+        .pos-system-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: linear-gradient(135deg, #1e3a8a 0%, #1e40af 100%);
+            padding: 10px 20px;
+            color: white;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .header-left,
+        .header-right {
+            display: flex;
+            align-items: center;
+            gap: 20px;
+        }
+
+        .system-info-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 0.85rem;
+            color: rgba(255, 255, 255, 0.9);
+        }
+
+        .system-info-item strong {
+            color: white;
+            font-weight: 600;
+        }
+
+        .system-divider {
+            width: 1px;
+            height: 24px;
+            background: rgba(255, 255, 255, 0.2);
+        }
+
+        .btn-header-action {
+            background: rgba(255, 255, 255, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            color: white;
+            width: 36px;
+            height: 36px;
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .btn-header-action:hover {
+            background: rgba(255, 255, 255, 0.2);
+            transform: translateY(-1px);
+        }
+
+        .badge-environment {
+            background: #fbbf24;
+            color: #78350f;
+            padding: 2px 10px;
+            border-radius: 20px;
+            font-size: 0.7rem;
+            font-weight: 800;
+            text-transform: uppercase;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+
+        .user-badge {
+            background: rgba(255, 255, 255, 0.1);
+            padding: 4px 12px;
+            border-radius: 30px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: #10b981;
+            box-shadow: 0 0 10px #10b981;
+        }
+
+        .btn-header-reload {
+            background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 12px;
+            font-size: 0.75rem;
+            font-weight: 700;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            cursor: pointer;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            box-shadow: 0 4px 15px rgba(239, 68, 68, 0.3);
+        }
+
+        .btn-header-reload:hover {
+            transform: translateY(-2px) scale(1.02);
+            box-shadow: 0 6px 20px rgba(239, 68, 68, 0.4);
+            filter: brightness(1.1);
+        }
+
+        .btn-header-reload i {
+            font-size: 0.9rem;
+            transition: transform 0.5s;
+        }
+
+        .btn-header-reload:hover i {
+            transform: rotate(180deg);
+        }
+
+        /* Responsive Header Adjustments */
+        @media (max-width: 992px) {
+            .pos-system-header {
+                flex-direction: column;
+                padding: 10px;
+                gap: 12px;
+                height: auto;
+            }
+
+            .header-left,
+            .header-right {
+                width: 100%;
+                justify-content: space-between;
+                gap: 10px;
+            }
+
+            .system-divider {
+                display: none;
+            }
+
+            .system-info-item span {
+                font-size: 0.75rem;
+            }
+
+            .system-info-item i {
+                font-size: 1rem;
+            }
+        }
+
+        @media (max-width: 480px) {
+            .system-info-item span {
+                display: none;
+                /* Only icons on very small screens */
+            }
+
+            .system-info-item strong {
+                display: inline;
+                font-size: 0.7rem;
+            }
+
+            .btn-header-reload span {
+                display: none;
+                /* Icon only reload on tiny screens */
+            }
+
+            .btn-header-reload {
+                padding: 8px;
+                width: 40px;
+                height: 40px;
+                justify-content: center;
+            }
+        }
+
+        /* Toast Notifications */
+        .pos-toast {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: white;
+            padding: 16px 24px;
+            border-radius: 16px;
+            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            z-index: 10000;
+            transform: translateX(120%);
+            transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            border-left: 5px solid #10b981;
+            font-weight: 600;
+            color: #1e293b;
+        }
+
+        .pos-toast.show {
+            transform: translateX(0);
+        }
+
+        .pos-toast.info {
+            border-left-color: #6366f1;
+        }
+
+        .pos-toast.error {
+            border-left-color: #ef4444;
+        }
+
+        .pos-toast i {
+            font-size: 1.4rem;
+            color: #10b981;
+        }
+
+        .pos-toast.info i {
+            color: #6366f1;
+        }
+
+        .pos-toast.error i {
+            color: #ef4444;
+        }
     </style>
 </head>
 
@@ -216,32 +431,38 @@ $date_now = date('d/m/Y H:i');
             <div class="pos-container">
                 <!-- 1. System Info Header -->
                 <header class="pos-system-header">
-                    <div class="system-info-item">
-                        <button id="toggle-sidebar" class="btn-sidebar-toggle"
-                            style="background: rgba(255,255,255,0.1); border: none; color: white; cursor: pointer; width: 32px; height: 32px; border-radius: 6px; display: flex; align-items: center; justify-content: center; margin-right: 15px; transition: all 0.2s;">
+                    <div class="header-left">
+                        <button id="pos-toggle-sidebar" class="btn-header-action" title="Abrir Menú">
                             <i class="fas fa-bars"></i>
                         </button>
-                        <i class="fas fa-hospital"></i>
-                        <span>ESTABLECIMIENTO: <strong><?php echo $establishment; ?></strong></span>
+                        <div class="system-divider"></div>
+                        <div class="system-info-item">
+                            <i class="fas fa-hospital"></i>
+                            <span>ESTABLECIMIENTO: <strong><?php echo $establishment; ?></strong></span>
+                        </div>
+                        <div class="system-info-item">
+                            <i class="fas fa-vial"></i>
+                            <span>AMBIENTE: <strong
+                                    class="badge-environment"><?php echo $environment; ?></strong></span>
+                        </div>
                     </div>
-                    <div class="system-info-item">
-                        <i class="fas fa-vial"></i>
-                        <span>AMBIENTE SRI: <strong style="color: #fbbf24;"><i class="fas fa-edit"></i>
-                                <?php echo $environment; ?></strong></span>
-                    </div>
-                    <div class="system-info-item">
-                        <i class="fas fa-calendar-alt"></i>
-                        <span>FECHA DE EMISIÓN: <strong><?php echo $date_now; ?></strong></span>
-                    </div>
-                    <div class="system-info-item">
-                        <i class="fas fa-user-circle"></i>
-                        <span>USUARIO: <strong><?php echo $user_name; ?></strong></span>
-                    </div>
-                    <!-- Offline/Sync Status Indicator -->
-                    <div id="offline-sync-indicator" class="system-info-item"
-                        title="Estado de conexión y sincronización">
-                        <i class="fas fa-wifi text-success"></i>
-                        <span>Detectando...</span>
+
+                    <div class="header-right">
+                        <div class="system-info-item">
+                            <i class="fas fa-calendar-alt"></i>
+                            <span><strong><?php echo explode(' ', $date_now)[0]; ?></strong></span>
+                        </div>
+                        <div class="system-divider"></div>
+                        <div class="user-badge">
+                            <i class="fas fa-user-circle"></i>
+                            <span><strong><?php echo $user_name; ?></strong></span>
+                            <div id="offline-sync-indicator" class="status-dot"></div>
+                        </div>
+                        <div class="system-divider"></div>
+                        <button onclick="confirmReload()" class="btn-header-reload">
+                            <i class="fas fa-sync-alt"></i>
+                            <span>RECARGAR POS</span>
+                        </button>
                     </div>
                 </header>
 
@@ -393,7 +614,7 @@ $date_now = date('d/m/Y H:i');
                             <div class="panel-header">
                                 <span><i class="fas fa-shopping-basket"></i> Productos en Carrito</span>
                             </div>
-                            <div style="flex: 1; overflow-y: auto;">
+                            <div class="cart-items-container" style="flex: 1; overflow-y: auto; min-height: 0;">
                                 <!-- Table Header -->
                                 <table class="cart-table">
                                     <thead>
@@ -469,6 +690,53 @@ $date_now = date('d/m/Y H:i');
 
                     </div>
 
+                </div>
+            </div>
+
+            <!-- MODAL: CONFIRMACIÓN DE RECARGA PERSONALIZADA -->
+            <div class="modal-overlay" id="modal-confirm-reload" style="z-index: 1003;">
+                <div class="modal-content" style="max-width: 400px; border-radius: 20px;">
+                    <div class="confirm-card">
+                        <div class="confirm-icon" style="color: #6366f1;">
+                            <i class="fas fa-sync-alt fa-spin"></i>
+                        </div>
+                        <div class="confirm-title">¿Refrescar Sistema?</div>
+                        <div class="confirm-text">Se reiniciará la interfaz. Tu carrito y cliente actual están
+                            <b>protegidos y se recuperarán</b> automáticamente.
+                        </div>
+                        <div class="confirm-actions">
+                            <button class="btn btn-secondary"
+                                onclick="document.getElementById('modal-confirm-reload').style.display='none'">
+                                <i class="fas fa-times"></i> Cancelar
+                            </button>
+                            <button class="btn btn-primary" onclick="location.reload()" style="background: #6366f1;">
+                                <i class="fas fa-sync"></i> Sí, Recargar
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- MODAL: ADVERTENCIA AL SALIR POR EL MENÚ -->
+            <div class="modal-overlay" id="modal-confirm-leave" style="z-index: 1004;">
+                <div class="modal-content" style="max-width: 400px; border-radius: 20px;">
+                    <div class="confirm-card">
+                        <div class="confirm-icon" style="color: #f59e0b;">
+                            <i class="fas fa-exclamation-circle"></i>
+                        </div>
+                        <div class="confirm-title">¡Atención!</div>
+                        <div class="confirm-text">Tienes una venta iniciada. Si abandonas el Punto de Venta para ir a
+                            otra sección, asegúrate de no perder tus cambios.</div>
+                        <div class="confirm-actions">
+                            <button class="btn btn-secondary"
+                                onclick="document.getElementById('modal-confirm-leave').style.display='none'">
+                                <i class="fas fa-shopping-cart"></i> Seguir Vendiendo
+                            </button>
+                            <button class="btn btn-primary" id="btn-confirm-leave-go" style="background: #f59e0b;">
+                                <i class="fas fa-sign-out-alt"></i> Salir de Todos Modos
+                            </button>
+                        </div>
+                    </div>
                 </div>
             </div>
 
@@ -718,6 +986,13 @@ $date_now = date('d/m/Y H:i');
         const btnCheckout = document.querySelector('.btn-checkout');
         const tabsBar = document.querySelector('.pos-tabs-bar');
         const btnNewTab = document.querySelector('.btn-new-tab');
+        const priceModeBtns = document.querySelectorAll('.pos-panel .price-type-btn');
+        const discountBtns = document.querySelectorAll('.discount-btn');
+        const customDiscountInput = document.querySelector('input[placeholder="0%"]');
+        const productSearchInput = document.querySelector('.product-search-input');
+        const productGrid = document.getElementById('pos-product-grid');
+        const clientSearchInput = document.querySelector('.client-search-box input');
+        const clientInfoDisplay = document.querySelector('.client-info-display');
 
         let sales = [{
             cart: [],
@@ -734,14 +1009,201 @@ $date_now = date('d/m/Y H:i');
             'obligado_contabilidad' => $empresa['obligado_contabilidad'] ? 'SI' : 'NO'
         ]); ?>;
 
-        btnOpen.onclick = () => modal.style.display = 'flex';
-        btnsClose.forEach(btn => btn.onclick = () => modal.style.display = 'none');
-        btnCheckout.onclick = () => processSale();
+        // --- PERSISTENCE ---
+        function showToast(message, type = 'success') {
+            const toast = document.createElement('div');
+            toast.className = `pos-toast ${type}`;
+            const icon = type === 'success' ? 'fa-check-circle' : (type === 'info' ? 'fa-info-circle' : 'fa-exclamation-triangle');
+            toast.innerHTML = `
+                <i class="fas ${icon}"></i>
+                <span>${message}</span>
+            `;
+            document.body.appendChild(toast);
+            setTimeout(() => {
+                toast.classList.add('show');
+                setTimeout(() => {
+                    toast.classList.remove('show');
+                    setTimeout(() => toast.remove(), 400);
+                }, 3500);
+            }, 100);
+        }
+
+        function saveState() {
+            localStorage.setItem('pos_sales', JSON.stringify(sales));
+            localStorage.setItem('pos_active_index', activeSaleIndex);
+        }
+
+        function loadState() {
+            const savedSales = localStorage.getItem('pos_sales');
+            const savedIndex = localStorage.getItem('pos_active_index');
+
+            if (savedSales) {
+                try {
+                    const parsed = JSON.parse(savedSales);
+                    if (Array.isArray(parsed) && parsed.length > 0) {
+                        sales = parsed;
+                        const hasItems = sales.some(s => s.cart.length > 0);
+                        if (hasItems) {
+                            setTimeout(() => showToast('¡Venta recuperada automáticamente!', 'info'), 500);
+                        }
+                    }
+                } catch (e) {
+                    console.error("Error parsing saved sales:", e);
+                }
+            }
+
+            if (savedIndex !== null) {
+                activeSaleIndex = parseInt(savedIndex);
+                if (activeSaleIndex >= sales.length) activeSaleIndex = 0;
+            }
+        }
+
+        // Warn before reload/close if there are items in cart
+        // Warn before reload/close ONLY if there are items in ANY cart tab
+        window.addEventListener('beforeunload', (event) => {
+            const hasItems = sales.some(s => s.cart && s.cart.length > 0);
+
+            if (hasItems) {
+                // We ask the browser to show the confirmation
+                event.preventDefault();
+                event.returnValue = ''; // Standard way for modern browsers
+                return ''; // Legacy support
+            }
+            // If empty, the browser will reload instantly without showing anything
+        });
+
+        // Custom function for the Header Reload Button
+        function confirmReload() {
+            const hasItems = sales.some(s => s.cart.length > 0);
+            if (hasItems) {
+                document.getElementById('modal-confirm-reload').style.display = 'flex';
+            } else {
+                location.reload();
+            }
+        }
+
+        // --- INITIALIZATION & EVENT LISTENERS ---
+        document.addEventListener('DOMContentLoaded', () => {
+            const toggleBtn = document.getElementById('pos-toggle-sidebar');
+            const mainContent = document.querySelector('.main-content');
+            const sidebarLinks = document.querySelectorAll('.sidebar a');
+
+            // 1. Sidebar Toggle Logic
+            if (toggleBtn) {
+                toggleBtn.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    if (window.innerWidth <= 992) {
+                        document.body.classList.toggle('sidebar-open');
+                        document.body.classList.remove('sidebar-collapsed');
+                    } else {
+                        document.body.classList.toggle('sidebar-collapsed');
+                        document.body.classList.remove('sidebar-open');
+                    }
+                });
+            }
+
+            // 2. Click outside sidebar to close on mobile
+            if (mainContent) {
+                mainContent.addEventListener('click', () => {
+                    if (document.body.classList.contains('sidebar-open')) {
+                        document.body.classList.remove('sidebar-open');
+                    }
+                });
+            }
+
+            // 3. Navigation Guard for Sidebar Links
+            sidebarLinks.forEach(link => {
+                link.addEventListener('click', (e) => {
+                    const hasItems = sales.some(s => s.cart && s.cart.length > 0);
+                    if (!hasItems) return;
+
+                    const targetUrl = link.href;
+                    if (!targetUrl || targetUrl.includes('#') || targetUrl === 'javascript:void(0)') return;
+
+                    e.preventDefault();
+                    const modalLeave = document.getElementById('modal-confirm-leave');
+                    if (modalLeave) modalLeave.style.display = 'flex';
+
+                    const confirmBtn = document.getElementById('btn-confirm-leave-go');
+                    if (confirmBtn) {
+                        confirmBtn.onclick = () => {
+                            saveState();
+                            window.location.href = targetUrl;
+                        };
+                    }
+                });
+            });
+
+            // 4. Initial Load
+            loadState();
+            renderTabs();
+            syncUIWithActiveSale();
+
+            // 5. General POS UI Listeners
+            if (btnOpen) btnOpen.onclick = () => modal.style.display = 'flex';
+            btnsClose.forEach(btn => btn.onclick = () => {
+                const modals = ['.modal-overlay', '#modal-cliente', '#modal-confirm-reload', '#modal-confirm-leave', '#modal-confirmacion', '#modal-ticket', '#modal-eliminar-venta'];
+                modals.forEach(m => {
+                    const el = document.querySelector(m);
+                    if (el) el.style.display = 'none';
+                });
+                // Compatibility for old IDs
+                if (modal) modal.style.display = 'none';
+            });
+            if (btnCheckout) btnCheckout.onclick = () => processSale();
+
+            // 6. Price Mode Buttons
+            if (priceModeBtns) {
+                priceModeBtns.forEach(btn => {
+                    btn.addEventListener('click', () => {
+                        priceModeBtns.forEach(b => b.classList.remove('active'));
+                        btn.classList.add('active');
+                        const span = btn.querySelector('span');
+                        if (!span) return;
+                        const modeText = span.innerText;
+                        if (modeText.includes('EFE')) sales[activeSaleIndex].priceMode = 'EFECTIVO';
+                        else if (modeText.includes('TAR')) sales[activeSaleIndex].priceMode = 'TARJETA';
+                        else sales[activeSaleIndex].priceMode = 'NORMAL';
+                        renderCart();
+                        saveState();
+                    });
+                });
+            }
+
+            // 7. Discount Selection
+            if (discountBtns) {
+                discountBtns.forEach(btn => {
+                    btn.addEventListener('click', () => {
+                        discountBtns.forEach(b => b.classList.remove('active'));
+                        btn.classList.add('active');
+                        const discText = btn.innerText;
+                        if (discText.includes('%')) {
+                            sales[activeSaleIndex].discount = parseFloat(discText.replace('%', ''));
+                        } else {
+                            sales[activeSaleIndex].discount = 0;
+                        }
+                        if (customDiscountInput) customDiscountInput.value = '';
+                        renderCart();
+                        saveState();
+                    });
+                });
+            }
+
+            if (customDiscountInput) {
+                customDiscountInput.addEventListener('input', (e) => {
+                    discountBtns.forEach(b => b.classList.remove('active'));
+                    let val = parseFloat(e.target.value.replace('%', ''));
+                    sales[activeSaleIndex].discount = isNaN(val) ? 0 : val;
+                    renderCart();
+                    saveState();
+                });
+            }
+        });
 
         // --- TAB MANAGEMENT ---
         function renderTabs() {
-            // Keep the "Nueva Venta" button
-            const newBtn = btnNewTab.cloneNode(true);
+            // Keep the "Nueva Venta" button logic simpler
             tabsBar.innerHTML = '';
 
             sales.forEach((sale, index) => {
@@ -762,8 +1224,12 @@ $date_now = date('d/m/Y H:i');
                 tabsBar.appendChild(tab);
             });
 
-            newBtn.onclick = addNewTab;
-            tabsBar.appendChild(newBtn);
+            // Create new tab button manually to ensure it works
+            const newTabBtn = document.createElement('button');
+            newTabBtn.className = 'btn-new-tab';
+            newTabBtn.innerHTML = '<i class="fas fa-plus"></i> <span>Nueva Venta</span>';
+            newTabBtn.onclick = addNewTab;
+            tabsBar.appendChild(newTabBtn);
         }
 
         function addNewTab() {
@@ -777,12 +1243,14 @@ $date_now = date('d/m/Y H:i');
             activeSaleIndex = sales.length - 1;
             syncUIWithActiveSale();
             renderTabs();
+            saveState();
         }
 
         function switchTab(index) {
             activeSaleIndex = index;
             syncUIWithActiveSale();
             renderTabs();
+            saveState();
         }
 
         function closeTab(index) {
@@ -809,6 +1277,7 @@ $date_now = date('d/m/Y H:i');
             sales.splice(index, 1);
             syncUIWithActiveSale();
             renderTabs();
+            saveState();
         }
 
         function syncUIWithActiveSale() {
@@ -837,53 +1306,6 @@ $date_now = date('d/m/Y H:i');
             renderCart();
         }
 
-        btnNewTab.onclick = addNewTab;
-        renderTabs();
-
-        // --- PRICE MODE & DISCOUNT SELECTORS ---
-        const priceModeBtns = document.querySelectorAll('.pos-panel .price-type-btn');
-        const discountBtns = document.querySelectorAll('.discount-btn');
-        const customDiscountInput = document.querySelector('input[placeholder="0%"]');
-
-        priceModeBtns.forEach(btn => {
-            btn.addEventListener('click', () => {
-                priceModeBtns.forEach(b => b.classList.remove('active'));
-                btn.classList.add('active');
-                const span = btn.querySelector('span');
-                if (!span) return;
-                const modeText = span.innerText;
-                if (modeText.includes('EFE')) sales[activeSaleIndex].priceMode = 'EFECTIVO';
-                else if (modeText.includes('TAR')) sales[activeSaleIndex].priceMode = 'TARJETA';
-                else sales[activeSaleIndex].priceMode = 'NORMAL';
-                renderCart();
-            });
-        });
-
-        discountBtns.forEach(btn => {
-            btn.addEventListener('click', () => {
-                discountBtns.forEach(b => b.classList.remove('active'));
-                btn.classList.add('active');
-                const discText = btn.innerText;
-                if (discText.includes('%')) {
-                    sales[activeSaleIndex].discount = parseFloat(discText.replace('%', ''));
-                } else {
-                    sales[activeSaleIndex].discount = 0;
-                }
-                customDiscountInput.value = '';
-                renderCart();
-            });
-        });
-
-        customDiscountInput.addEventListener('input', (e) => {
-            discountBtns.forEach(b => b.classList.remove('active'));
-            let val = parseFloat(e.target.value.replace('%', ''));
-            sales[activeSaleIndex].discount = isNaN(val) ? 0 : val;
-            renderCart();
-        });
-
-        // --- SEARCH PRODUCTS ---
-        const productSearchInput = document.querySelector('.product-search-input');
-        const productGrid = document.getElementById('pos-product-grid');
 
         productSearchInput.addEventListener('input', debounce(function (e) {
             const query = e.target.value;
@@ -923,10 +1345,6 @@ $date_now = date('d/m/Y H:i');
                 });
         }, 300));
 
-        // --- SEARCH CLIENTS ---
-        const clientSearchInput = document.querySelector('.client-search-box input');
-        const clientInfoDisplay = document.querySelector('.client-info-display');
-
         clientSearchInput.addEventListener('input', debounce(function (e) {
             const query = e.target.value;
             if (query.trim().length < 3) return;
@@ -962,6 +1380,7 @@ $date_now = date('d/m/Y H:i');
             const badge = document.querySelector('.badge-primary');
             if (badge) badge.textContent = client.cedula_ruc == '9999999999' ? 'CONSUMIDOR FINAL' : 'CLIENTE';
             clientSearchInput.value = `${client.nombres} ${client.apellidos}`;
+            saveState();
         }
 
         // --- CART MANAGEMENT ---
@@ -982,17 +1401,20 @@ $date_now = date('d/m/Y H:i');
                 });
             }
             renderCart();
+            saveState();
         }
 
         function removeFromCart(index) {
             sales[activeSaleIndex].cart.splice(index, 1);
             renderCart();
+            saveState();
         }
 
         function updateQty(index, qty) {
             if (qty <= 0) return removeFromCart(index);
             sales[activeSaleIndex].cart[index].quantity = parseFloat(qty);
             renderCart();
+            saveState();
         }
 
         function renderCart() {
@@ -1177,6 +1599,7 @@ $date_now = date('d/m/Y H:i');
                             };
                             syncUIWithActiveSale();
                         }
+                        saveState();
                     } else {
                         alert("Error: " + res.error);
                     }
