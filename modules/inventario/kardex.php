@@ -5,16 +5,73 @@
 session_start();
 require_once '../../includes/db.php';
 
-$current_page = 'inventario_kardex';
+// Pagination
+$limit = 15;
+$page = isset($_GET['page']) ? (int) $_GET['page'] : 1;
+$offset = ($page - 1) * $limit;
 
-// Mock data for Kardex
-$movimientos = [
-    ['fecha' => '14/12/2025 16:40', 'producto' => 'AGUA ALL NATURAL S-GASX1LT', 'tipo' => 'AJUSTE INGRESO', 'tipo_class' => 'bg-info', 'detalle' => 'Ajuste AJ-20251214-28/AB4: Inventario Físico', 'ingreso' => '+1,00', 'egreso' => '-', 'saldo' => '3,00'],
-    ['fecha' => '02/12/2025 20:26', 'producto' => 'CREMA PARA PEINAR - SAVITAL MULTIVITAMINAS Y SABILA 22ML', 'tipo' => 'VENTA', 'tipo_class' => 'bg-primary', 'detalle' => 'Factura Venta N° 001-001-000000018', 'ingreso' => '-', 'egreso' => '-2,00', 'saldo' => '6,00'],
-    ['fecha' => '26/11/2025 18:29', 'producto' => 'VITAMINA C FRESA SOL ORAL GOTAS X30ML - MK', 'tipo' => 'VENTA', 'tipo_class' => 'bg-primary', 'detalle' => 'Factura Venta N° 001-001-000000017', 'ingreso' => '-', 'egreso' => '-3,00', 'saldo' => '0,00'],
-    ['fecha' => '26/11/2025 18:29', 'producto' => 'VITAMINA C NARANJA 500MG SX12 TAB MAST - LASANTE', 'tipo' => 'VENTA', 'tipo_class' => 'bg-primary', 'detalle' => 'Factura Venta N° 001-001-000000017', 'ingreso' => '-', 'egreso' => '-3,00', 'saldo' => '66,00'],
-    ['fecha' => '24/11/2025 20:43', 'producto' => 'ACCUALAXAN 8.5G SOBRES CAJA X 7', 'tipo' => 'VENTA', 'tipo_class' => 'bg-primary', 'detalle' => 'Factura Venta N° 001-001-000000016', 'ingreso' => '-', 'egreso' => '-3,00', 'saldo' => '9,00'],
-];
+// Filters
+$tipo = isset($_GET['tipo']) ? $_GET['tipo'] : '';
+$search = isset($_GET['search']) ? $_GET['search'] : '';
+
+$where = " WHERE 1=1 ";
+$params = [];
+
+if ($tipo) {
+    $where .= " AND km.tipoMovimiento = :tipo ";
+    $params[':tipo'] = $tipo;
+}
+if ($search) {
+    $where .= " AND (p.nombre LIKE :search OR p.codigoPrincipal LIKE :search OR km.detalle LIKE :search) ";
+    $params[':search'] = "%$search%";
+}
+
+try {
+    // Stats
+    $stats_query = "SELECT 
+                        COUNT(*) as total,
+                        SUM(ingreso) as total_entradas,
+                        SUM(egreso) as total_salidas
+                    FROM kardex_movimientos";
+    $stats = $pdo->query($stats_query)->fetch();
+
+    $productos_activos_query = "SELECT COUNT(*) FROM productos WHERE anulado = 0";
+    $productos_activos = $pdo->query($productos_activos_query)->fetchColumn();
+
+    // Main query
+    $query = "SELECT km.*, p.nombre as producto_nombre, p.codigoPrincipal as barcode
+              FROM kardex_movimientos km
+              JOIN productos p ON km.idProducto = p.id
+              $where
+              ORDER BY km.fecha DESC, km.id DESC
+              LIMIT :limit OFFSET :offset";
+
+    $stmt = $pdo->prepare($query);
+    $stmt->bindValue(':limit', $limit, PDO::PARAM_INT);
+    $stmt->bindValue(':offset', $offset, PDO::PARAM_INT);
+    foreach ($params as $key => $val) {
+        $stmt->bindValue($key, $val);
+    }
+    $stmt->execute();
+    $movimientos = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+    // Get total for pagination
+    $total_stmt = $pdo->prepare("SELECT COUNT(*) FROM kardex_movimientos km JOIN productos p ON km.idProducto = p.id $where");
+    foreach ($params as $key => $val) {
+        $total_stmt->bindValue($key, $val);
+    }
+    $total_stmt->execute();
+    $total_records = $total_stmt->fetchColumn();
+
+} catch (PDOException $e) {
+    $movimientos = [];
+    $stats = ['total' => 0, 'total_entradas' => 0, 'total_salidas' => 0];
+    $total_records = 0;
+    $productos_activos = 0;
+    $error = $e->getMessage();
+}
+
+$current_page = 'inventario_kardex';
 ?>
 <!DOCTYPE html>
 <html lang="es">
@@ -27,11 +84,23 @@ $movimientos = [
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="stylesheet" href="../../assets/css/style.css">
     <style>
+        :root {
+            --primary: #3b82f6;
+            --primary-dark: #2563eb;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f8fafc;
+        }
+
         .kardex-header {
             display: flex;
             justify-content: space-between;
             align-items: center;
             margin-bottom: 25px;
+            flex-wrap: wrap;
+            gap: 15px;
         }
 
         .kardex-title h1 {
@@ -41,11 +110,12 @@ $movimientos = [
             display: flex;
             align-items: center;
             gap: 10px;
+            font-weight: 700;
         }
 
         .summary-cards-kardex {
             display: grid;
-            grid-template-columns: repeat(4, 1fr);
+            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
             gap: 20px;
             margin-bottom: 25px;
         }
@@ -57,41 +127,40 @@ $movimientos = [
             display: flex;
             justify-content: space-between;
             align-items: center;
-            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+            box-shadow: var(--shadow-sm);
         }
 
         .k-card .info h3 {
-            font-size: 0.75rem;
+            font-size: 0.8rem;
             font-weight: 500;
             margin-bottom: 5px;
             opacity: 0.9;
         }
 
         .k-card .info .value {
-            font-size: 1.5rem;
+            font-size: 1.6rem;
             font-weight: 800;
         }
 
         .k-card .icon {
-            font-size: 2rem;
+            font-size: 2.2rem;
             opacity: 0.3;
         }
 
         .k-blue {
-            background: #007bff;
+            background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
         }
 
         .k-green {
-            background: #198754;
+            background: linear-gradient(135deg, #10b981 0%, #059669 100%);
         }
 
         .k-red {
-            background: #dc3545;
+            background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
         }
 
         .k-orange {
-            background: #ffc107;
-            color: white;
+            background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
         }
 
         .filters-panel-kardex {
@@ -101,7 +170,7 @@ $movimientos = [
             box-shadow: var(--shadow-sm);
             margin-bottom: 25px;
             display: grid;
-            grid-template-columns: 1.5fr 1fr 1fr 1fr 180px;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
             gap: 15px;
             align-items: flex-end;
         }
@@ -114,60 +183,70 @@ $movimientos = [
             margin-bottom: 8px;
         }
 
-        .k-table {
-            width: 100%;
-            border-collapse: collapse;
+        .table-responsive {
             background: white;
             border-radius: 12px;
-            overflow: hidden;
             box-shadow: var(--shadow-sm);
+            overflow-x: auto;
         }
 
-        .k-table th {
-            background: #212529;
-            color: white;
-            text-align: left;
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        th {
+            background: #f8fafc;
             padding: 12px 15px;
+            text-align: left;
             font-size: 0.75rem;
             font-weight: 700;
+            color: #64748b;
             text-transform: uppercase;
+            border-bottom: 1px solid #f1f5f9;
         }
 
-        .k-table td {
+        td {
             padding: 12px 15px;
             border-bottom: 1px solid #f1f5f9;
-            font-size: 0.8rem;
-            color: #1e293b;
+            font-size: 0.85rem;
+            vertical-align: top;
         }
 
-        .k-table tr:hover {
-            background: #f8fafc;
-        }
-
-        .badge-k {
-            padding: 4px 10px;
+        .type-pill {
+            padding: 2px 8px;
             border-radius: 4px;
             font-size: 0.65rem;
-            font-weight: 700;
+            font-weight: 800;
             color: white;
             text-transform: uppercase;
         }
 
-        .bg-info {
-            background: #0dcaf0;
+        .bg-venta {
+            background-color: #6366f1;
         }
 
-        .bg-primary {
-            background: #0d6efd;
+        .bg-compra {
+            background-color: #10b981;
         }
 
-        .action-eye {
-            color: #0d6efd;
-            background: #e7f1ff;
-            border: 1px solid #0d6efd;
-            padding: 4px 8px;
-            border-radius: 4px;
-            cursor: pointer;
+        .bg-ajuste {
+            background-color: #f59e0b;
+        }
+
+        .bg-default {
+            background-color: #94a3b8;
+        }
+
+        @media (max-width: 768px) {
+            .kardex-header {
+                flex-direction: column;
+                align-items: stretch;
+            }
+
+            .filters-panel-kardex {
+                grid-template-columns: 1fr;
+            }
         }
     </style>
 </head>
@@ -185,43 +264,15 @@ $movimientos = [
             <div class="content-wrapper">
                 <div class="kardex-header">
                     <div class="kardex-title">
-                        <h1><i class="fas fa-chart-line"></i> Kardex General</h1>
+                        <h1><i class="fas fa-book"></i> Kardex General de Inventario</h1>
                     </div>
                     <div style="display: flex; gap: 10px;">
-                        <button class="btn btn-outline" style="color: #198754; border-color: #198754;">
-                            <i class="fas fa-file-excel"></i> Exportar Excel
+                        <button class="btn btn-outline">
+                            <i class="fas fa-print"></i> Reporte PDF
                         </button>
-                        <button class="btn btn-outline" style="color: #dc3545; border-color: #dc3545;">
-                            <i class="fas fa-print"></i> Imprimir
+                        <button class="btn btn-outline">
+                            <i class="fas fa-file-excel"></i> Excel
                         </button>
-                    </div>
-                </div>
-
-                <div class="filters-panel-kardex">
-                    <div>
-                        <label>Producto (Buscar por nombre o código)</label>
-                        <input type="text" class="form-control" placeholder="Buscar por nombre o código...">
-                    </div>
-                    <div>
-                        <label>Fecha Desde</label>
-                        <input type="date" class="form-control">
-                    </div>
-                    <div>
-                        <label>Fecha Hasta</label>
-                        <input type="date" class="form-control">
-                    </div>
-                    <div>
-                        <label>Tipo Movimiento</label>
-                        <select class="form-control">
-                            <option>Todos</option>
-                            <option>Ventas</option>
-                            <option>Compras</option>
-                            <option>Ajustes</option>
-                        </select>
-                    </div>
-                    <div style="display: flex; gap: 5px;">
-                        <button class="btn btn-primary" style="flex: 1;"><i class="fas fa-search"></i> Filtrar</button>
-                        <button class="btn btn-secondary"><i class="fas fa-times"></i> Limpiar</button>
                     </div>
                 </div>
 
@@ -229,80 +280,134 @@ $movimientos = [
                     <div class="k-card k-blue">
                         <div class="info">
                             <h3>Total Movimientos</h3>
-                            <div class="value">19</div>
+                            <div class="value"><?php echo number_format($stats['total'] ?? 0); ?></div>
                         </div>
                         <i class="fas fa-exchange-alt icon"></i>
                     </div>
                     <div class="k-card k-green">
                         <div class="info">
                             <h3>Total Entradas</h3>
-                            <div class="value">601,00</div>
+                            <div class="value"><?php echo number_format($stats['total_entradas'] ?? 0, 2); ?></div>
                         </div>
-                        <i class="fas fa-arrow-up icon"></i>
+                        <i class="fas fa-arrow-alt-circle-up icon"></i>
                     </div>
                     <div class="k-card k-red">
                         <div class="info">
                             <h3>Total Salidas</h3>
-                            <div class="value">165,00</div>
+                            <div class="value"><?php echo number_format($stats['total_salidas'] ?? 0, 2); ?></div>
                         </div>
-                        <i class="fas fa-arrow-down icon"></i>
+                        <i class="fas fa-arrow-alt-circle-down icon"></i>
                     </div>
                     <div class="k-card k-orange">
                         <div class="info">
                             <h3>Productos Activos</h3>
-                            <div class="value">12</div>
+                            <div class="value"><?php echo number_format($productos_activos ?? 0); ?></div>
                         </div>
-                        <i class="fas fa-box icon"></i>
+                        <i class="fas fa-boxes icon"></i>
                     </div>
                 </div>
 
-                <table class="k-table">
-                    <thead>
-                        <tr>
-                            <th>Fecha</th>
-                            <th>Producto</th>
-                            <th>Tipo Movimiento</th>
-                            <th>Detalle</th>
-                            <th style="text-align: right;">Ingreso</th>
-                            <th style="text-align: right;">Egreso</th>
-                            <th style="text-align: right;">Saldo</th>
-                            <th style="text-align: center;">Acciones</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <?php foreach ($movimientos as $m): ?>
+                <div class="filters-panel-kardex">
+                    <form method="GET" style="display: contents;">
+                        <div style="flex: 2;">
+                            <label>Buscar Producto o Documento</label>
+                            <input type="text" name="search" class="form-control"
+                                placeholder="Nombre, código, N° factura..."
+                                value="<?php echo htmlspecialchars($search); ?>">
+                        </div>
+                        <div>
+                            <label>Tipo Movimiento</label>
+                            <select name="tipo" class="form-control">
+                                <option value="">Todos</option>
+                                <option value="VENTA" <?php echo $tipo == 'VENTA' ? 'selected' : ''; ?>>Venta</option>
+                                <option value="COMPRA" <?php echo $tipo == 'COMPRA' ? 'selected' : ''; ?>>Compra</option>
+                                <option value="AJUSTE INGRESO" <?php echo $tipo == 'AJUSTE INGRESO' ? 'selected' : ''; ?>>
+                                    Ajuste Ingreso</option>
+                                <option value="AJUSTE EGRESO" <?php echo $tipo == 'AJUSTE EGRESO' ? 'selected' : ''; ?>>
+                                    Ajuste Egreso</option>
+                            </select>
+                        </div>
+                        <button type="submit" class="btn btn-primary" style="height: 42px;">
+                            <i class="fas fa-search"></i>
+                        </button>
+                        <a href="kardex.php" class="btn btn-outline"
+                            style="height: 42px; display: flex; align-items: center; justify-content: center; text-decoration: none;">
+                            <i class="fas fa-times"></i>
+                        </a>
+                    </form>
+                </div>
+
+                <div class="table-responsive">
+                    <table>
+                        <thead>
                             <tr>
-                                <td style="font-size: 0.7rem;">
-                                    <?php echo $m['fecha']; ?>
-                                </td>
-                                <td style="font-weight: 700; width: 300px;">
-                                    <?php echo $m['producto']; ?>
-                                </td>
-                                <td><span class="badge-k <?php echo $m['tipo_class']; ?>">+
-                                        <?php echo $m['tipo']; ?>
-                                    </span></td>
-                                <td style="color: #64748b; font-size: 0.75rem;">
-                                    <?php echo $m['detalle']; ?>
-                                </td>
-                                <td style="text-align: right; color: #198754; font-weight: 700;">
-                                    <?php echo $m['ingreso']; ?>
-                                </td>
-                                <td style="text-align: right; color: #dc3545; font-weight: 700;">
-                                    <?php echo $m['egreso']; ?>
-                                </td>
-                                <td style="text-align: right; font-weight: 800;">
-                                    <?php echo $m['saldo']; ?>
-                                </td>
-                                <td style="text-align: center;">
-                                    <a href="kardex_detalle.php?producto=<?php echo urlencode($m['producto']); ?>"
-                                        class="action-eye">
-                                        <i class="fas fa-eye"></i>
-                                    </a>
-                                </td>
+                                <th>Fecha / Hora</th>
+                                <th>Producto</th>
+                                <th>Tipo</th>
+                                <th>Detalle / Referencia</th>
+                                <th style="text-align: right;">Ingreso</th>
+                                <th style="text-align: right;">Egreso</th>
+                                <th style="text-align: right;">Saldo</th>
                             </tr>
-                        <?php endforeach; ?>
-                    </tbody>
-                </table>
+                        </thead>
+                        <tbody>
+                            <?php if (empty($movimientos)): ?>
+                                <tr>
+                                    <td colspan="7" style="text-align: center; padding: 40px; color: #64748b;">
+                                        No se encontraron movimientos en el kardex.
+                                    </td>
+                                </tr>
+                            <?php else: ?>
+                                <?php foreach ($movimientos as $m):
+                                    $bg_class = 'bg-default';
+                                    if (strpos($m['tipoMovimiento'], 'VENTA') !== false)
+                                        $bg_class = 'bg-venta';
+                                    elseif (strpos($m['tipoMovimiento'], 'COMPRA') !== false)
+                                        $bg_class = 'bg-compra';
+                                    elseif (strpos($m['tipoMovimiento'], 'AJUSTE') !== false)
+                                        $bg_class = 'bg-ajuste';
+                                    ?>
+                                    <tr>
+                                        <td style="white-space: nowrap;">
+                                            <?php echo date('d/m/Y H:i', strtotime($m['fecha'])); ?></td>
+                                        <td>
+                                            <div style="font-weight: 600; color: #1e293b;">
+                                                <?php echo htmlspecialchars($m['producto_nombre']); ?></div>
+                                            <div style="font-size: 0.75rem; color: #64748b;">
+                                                <?php echo htmlspecialchars($m['barcode']); ?></div>
+                                        </td>
+                                        <td><span
+                                                class="type-pill <?php echo $bg_class; ?>"><?php echo $m['tipoMovimiento']; ?></span>
+                                        </td>
+                                        <td style="max-width: 250px; font-size: 0.8rem;">
+                                            <?php echo htmlspecialchars($m['detalle']); ?></td>
+                                        <td style="text-align: right; color: #10b981; font-weight: 600;">
+                                            <?php echo $m['ingreso'] > 0 ? '+' . number_format($m['ingreso'], 2) : '-'; ?>
+                                        </td>
+                                        <td style="text-align: right; color: #ef4444; font-weight: 600;">
+                                            <?php echo $m['egreso'] > 0 ? '-' . number_format($m['egreso'], 2) : '-'; ?>
+                                        </td>
+                                        <td style="text-align: right; font-weight: 700; color: #1e293b;">
+                                            <?php echo number_format($m['saldo'], 2); ?>
+                                        </td>
+                                    </tr>
+                                <?php endforeach; ?>
+                            <?php endif; ?>
+                        </tbody>
+                    </table>
+                </div>
+
+                <?php if ($total_records > $limit): ?>
+                    <div style="margin-top: 20px; display: flex; justify-content: center; gap: 10px;">
+                        <?php for ($i = 1; $i <= ceil($total_records / $limit); $i++): ?>
+                            <a href="?page=<?php echo $i; ?>&tipo=<?php echo $tipo; ?>&search=<?php echo urlencode($search); ?>"
+                                class="btn <?php echo $page == $i ? 'btn-primary' : 'btn-outline'; ?>"
+                                style="padding: 5px 12px; height: auto;">
+                                <?php echo $i; ?>
+                            </a>
+                        <?php endfor; ?>
+                    </div>
+                <?php endif; ?>
             </div>
         </main>
     </div>

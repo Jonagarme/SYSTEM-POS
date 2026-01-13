@@ -5,14 +5,26 @@
 session_start();
 require_once '../../includes/db.php';
 
-$current_page = 'inventario_ubicaciones';
+// Fetch from database
+try {
+    $stmt = $pdo->query("SELECT * FROM inventario_ubicacion WHERE anulado = 0 ORDER BY es_principal DESC, nombre ASC");
+    $ubicaciones = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
-// Mock locations
-$ubicaciones = [
-    ['id' => 'BOD-001', 'nombre' => 'Bodega Principal', 'direccion' => 'Ubicación principal del sistema', 'tel' => '0000000000', 'admin' => 'Administrador General', 'tipo' => 'Bodega', 'tipo_class' => 'type-bodega'],
-    ['id' => 'SUC-001', 'nombre' => 'Sucursal Centro', 'direccion' => 'Centro de la ciudad', 'tel' => '0991234567', 'admin' => 'María González', 'tipo' => 'Sucursal', 'tipo_class' => 'type-sucursal'],
-    ['id' => 'SUC-002', 'nombre' => 'Sucursal Norte', 'direccion' => 'Zona Norte', 'tel' => '0987654321', 'admin' => 'Carlos Ramírez', 'tipo' => 'Sucursal', 'tipo_class' => 'type-sucursal'],
-];
+    // Stats
+    $total_ubicaciones = count($ubicaciones);
+    $activas = 0;
+    foreach ($ubicaciones as $u) {
+        if ($u['activo'])
+            $activas++;
+    }
+} catch (PDOException $e) {
+    $ubicaciones = [];
+    $total_ubicaciones = 0;
+    $activas = 0;
+    $error = $e->getMessage();
+}
+
+$current_page = 'inventario_ubicaciones';
 ?>
 <!DOCTYPE html>
 <html lang="es">
@@ -25,11 +37,24 @@ $ubicaciones = [
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="stylesheet" href="../../assets/css/style.css">
     <style>
+        :root {
+            --primary: #6366f1;
+            --primary-hover: #4f46e5;
+            --card-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f8fafc;
+        }
+
         .ubicaciones-header {
             display: flex;
             justify-content: space-between;
-            align-items: flex-start;
+            align-items: center;
             margin-bottom: 25px;
+            flex-wrap: wrap;
+            gap: 15px;
         }
 
         .ubicaciones-title h1 {
@@ -48,47 +73,52 @@ $ubicaciones = [
 
         .breadcrumb a {
             color: #2563eb;
+            text-decoration: none;
         }
 
         .summary-grid-ubic {
             display: grid;
-            grid-template-columns: repeat(2, 1fr);
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
             gap: 20px;
             margin-bottom: 30px;
-            max-width: 600px;
+            max-width: 800px;
         }
 
         .u-card {
             background: linear-gradient(135deg, #6366f1 0%, #a855f7 100%);
             color: white;
-            padding: 15px 20px;
+            padding: 20px;
             border-radius: 12px;
             display: flex;
             justify-content: space-between;
             align-items: center;
-            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+            box-shadow: var(--card-shadow);
+        }
+
+        .u-card.success {
+            background: linear-gradient(135deg, #10b981 0%, #059669 100%);
         }
 
         .u-card .info h3 {
-            font-size: 1.6rem;
+            font-size: 1.8rem;
             font-weight: 800;
             margin: 0;
         }
 
         .u-card .info .label {
-            font-size: 0.75rem;
+            font-size: 0.8rem;
             font-weight: 500;
             opacity: 0.9;
         }
 
         .u-card .icon {
-            font-size: 1.8rem;
+            font-size: 2rem;
             opacity: 0.3;
         }
 
         .locations-grid {
             display: grid;
-            grid-template-columns: repeat(3, 1fr);
+            grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
             gap: 20px;
             margin-bottom: 40px;
         }
@@ -96,186 +126,95 @@ $ubicaciones = [
         .loc-item-card {
             background: white;
             border-radius: 12px;
-            padding: 20px;
+            padding: 24px;
             box-shadow: var(--shadow-sm);
             border: 1px solid #f1f5f9;
             position: relative;
+            transition: transform 0.2s, box-shadow 0.2s;
         }
 
-        .loc-id {
-            font-size: 0.75rem;
-            font-weight: 700;
-            color: #2563eb;
-            margin-bottom: 5px;
-            display: block;
-        }
-
-        .loc-name {
-            font-size: 1rem;
-            font-weight: 700;
-            color: #1e293b;
-            margin-bottom: 15px;
-            display: block;
-        }
-
-        .loc-info {
-            font-size: 0.8rem;
-            color: #64748b;
-            margin-bottom: 8px;
-            display: flex;
-            align-items: center;
-            gap: 8px;
+        .loc-item-card:hover {
+            transform: translateY(-4px);
+            box-shadow: var(--shadow);
         }
 
         .loc-type-badge {
             position: absolute;
             top: 20px;
             right: 20px;
-            display: flex;
-            gap: 5px;
-        }
-
-        .badge-type {
-            padding: 2px 8px;
-            border-radius: 4px;
+            padding: 4px 10px;
+            border-radius: 6px;
             font-size: 0.65rem;
             font-weight: 700;
-            color: white;
+            text-transform: uppercase;
         }
 
         .type-bodega {
-            background: #198754;
+            background: #e0f2fe;
+            color: #0369a1;
         }
 
         .type-sucursal {
-            background: #007bff;
+            background: #fef3c7;
+            color: #92400e;
         }
 
-        .badge-principal {
-            background: #ff7e00;
+        .type-almacen {
+            background: #dcfce7;
+            color: #166534;
         }
 
-        .loc-admin {
-            margin-top: 15px;
-            padding-top: 15px;
-            border-top: 1px solid #f1f5f9;
+        .loc-name {
             display: flex;
-            justify-content: flex-end;
             align-items: center;
-            gap: 8px;
-            font-size: 0.75rem;
+            gap: 10px;
+            margin-bottom: 12px;
+        }
+
+        .loc-name h2 {
+            font-size: 1.1rem;
+            font-weight: 700;
+            color: #1e293b;
+        }
+
+        .principal-star {
+            color: #f59e0b;
+            font-size: 0.9rem;
+        }
+
+        .loc-info-list {
+            margin-bottom: 20px;
+        }
+
+        .loc-info-item {
+            display: flex;
+            gap: 10px;
+            font-size: 0.85rem;
             color: #64748b;
+            margin-bottom: 8px;
+        }
+
+        .loc-info-item i {
+            width: 16px;
+            color: #94a3b8;
         }
 
         .loc-actions {
-            margin-top: 15px;
             display: flex;
-            justify-content: center;
-            gap: 8px;
-        }
-
-        .btn-loc-action {
-            width: 32px;
-            height: 32px;
-            border-radius: 6px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 0.8rem;
-            cursor: pointer;
-            transition: all 0.2s;
-            border: 1px solid #e2e8f0;
-            background: white;
-        }
-
-        .btn-edit {
-            color: #2563eb;
-            border-color: #2563eb;
-        }
-
-        .btn-tree {
-            color: #0ea5e9;
-            border-color: #0ea5e9;
-        }
-
-        .btn-config {
-            color: #198754;
-            border-color: #198754;
-        }
-
-        .info-legend-panel {
-            background: #f8fafc;
-            border-radius: 12px;
-            padding: 25px;
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 40px;
-            border: 1px solid #e2e8f0;
-        }
-
-        .legend-title {
-            font-size: 0.9rem;
-            font-weight: 700;
-            color: #1e293b;
-            margin-bottom: 15px;
-            display: flex;
-            align-items: center;
             gap: 10px;
+            padding-top: 15px;
+            border-top: 1px solid #f1f5f9;
         }
 
-        .legend-list {
-            list-style: none;
-            padding: 0;
-        }
+        @media (max-width: 768px) {
+            .ubicaciones-header {
+                flex-direction: column;
+                align-items: stretch;
+            }
 
-        .legend-list li {
-            font-size: 0.8rem;
-            color: #475569;
-            margin-bottom: 8px;
-            display: flex;
-            align-items: center;
-            gap: 10px;
-        }
-
-        .dot {
-            width: 10px;
-            height: 10px;
-            border-radius: 50%;
-            display: inline-block;
-        }
-
-        .dot-sucursal {
-            background: #007bff;
-        }
-
-        .dot-bodega {
-            background: #198754;
-        }
-
-        .dot-almacen {
-            background: #ffc107;
-        }
-
-        .dot-deposito {
-            background: #6c757d;
-        }
-
-        .feature-list {
-            list-style: none;
-            padding: 0;
-        }
-
-        .feature-list li {
-            font-size: 0.8rem;
-            color: #475569;
-            margin-bottom: 10px;
-            display: flex;
-            align-items: center;
-            gap: 10px;
-        }
-
-        .feature-list i {
-            color: #198754;
+            .locations-grid {
+                grid-template-columns: 1fr;
+            }
         }
     </style>
 </head>
@@ -293,102 +232,98 @@ $ubicaciones = [
             <div class="content-wrapper">
                 <div class="ubicaciones-header">
                     <div class="ubicaciones-title">
-                        <h1>Ubicaciones</h1>
+                        <h1>Gestión de Ubicaciones</h1>
                         <div class="breadcrumb">
-                            <a href="../../index.php">Dashboard</a> / <a href="../inventario/kardex.php">Inventario</a>
-                            / <span>Ubicaciones</span>
+                            <a href="../../index.php">Dashboard</a> / <span>Inventario</span> / <span>Ubicaciones</span>
                         </div>
                     </div>
-                    <a href="nueva_ubicacion.php" class="btn btn-primary" style="padding: 10px 20px; font-weight: 600;">
+                    <button class="btn btn-primary" onclick="openCreateModal()">
                         <i class="fas fa-plus"></i> Nueva Ubicación
-                    </a>
+                    </button>
                 </div>
 
                 <div class="summary-grid-ubic">
                     <div class="u-card">
                         <div class="info">
-                            <h3>3</h3>
                             <div class="label">Total Ubicaciones</div>
+                            <h3><?php echo $total_ubicaciones; ?></h3>
                         </div>
                         <i class="fas fa-map-marker-alt icon"></i>
                     </div>
-                    <div class="u-card">
+                    <div class="u-card success">
                         <div class="info">
-                            <h3>2</h3>
                             <div class="label">Activas</div>
+                            <h3><?php echo $activas; ?></h3>
                         </div>
                         <i class="fas fa-check-circle icon"></i>
                     </div>
                 </div>
 
                 <div class="locations-grid">
-                    <?php foreach ($ubicaciones as $u): ?>
-                        <div class="loc-item-card">
-                            <div class="loc-type-badge">
-                                <span class="badge-type <?php echo $u['tipo_class']; ?>">
-                                    <?php echo $u['tipo']; ?>
-                                </span>
-                                <?php if ($u['nombre'] == 'Bodega Principal')
-                                    echo '<span class="badge-type badge-principal">Principal</span>'; ?>
-                            </div>
-                            <span class="loc-id">
-                                <?php echo $u['id']; ?>
-                            </span>
-                            <span class="loc-name">
-                                <?php echo $u['nombre']; ?>
-                            </span>
-                            <div class="loc-info">
-                                <i class="fas fa-map-marker-alt"></i>
-                                <?php echo $u['direccion']; ?>
-                            </div>
-                            <div class="loc-info">
-                                <i class="fas fa-phone"></i>
-                                <?php echo $u['tel']; ?>
-                            </div>
-                            <div class="loc-admin">
-                                <i class="fas fa-user"></i>
-                                <?php echo $u['admin']; ?>
-                            </div>
-                            <div class="loc-actions">
-                                <button class="btn-loc-action btn-edit"><i class="fas fa-edit"></i></button>
-                                <button class="btn-loc-action btn-tree"><i class="fas fa-sitemap"></i></button>
-                                <button class="btn-loc-action btn-config"><i class="fas fa-cog"></i></button>
-                            </div>
+                    <?php if (empty($ubicaciones)): ?>
+                        <div
+                            style="grid-column: 1/-1; padding: 60px; text-align: center; background: white; border-radius: 12px;">
+                            <i class="fas fa-map-marked-alt"
+                                style="font-size: 3rem; color: #cbd5e1; margin-bottom: 20px; display: block;"></i>
+                            <h3 style="color: #475569;">No hay ubicaciones registradas</h3>
+                            <p style="color: #64748b;">Comienza agregando una bodega o sucursal.</p>
                         </div>
-                    <?php endforeach; ?>
-                </div>
-
-                <div class="info-legend-panel">
-                    <div>
-                        <div class="legend-title"><i class="fas fa-info-circle"></i> Información sobre Ubicaciones</div>
-                        <div style="font-size: 0.85rem; font-weight: 700; color: #2563eb; margin-bottom: 10px;">Tipos de
-                            Ubicaciones:</div>
-                        <ul class="legend-list">
-                            <li><span class="dot dot-sucursal"></span> <strong>Sucursal</strong> - Puntos de venta al
-                                público</li>
-                            <li><span class="dot dot-bodega"></span> <strong>Bodega</strong> - Almacenamiento principal
-                            </li>
-                            <li><span class="dot dot-almacen"></span> <strong>Almacén</strong> - Almacenamiento
-                                secundario</li>
-                            <li><span class="dot dot-deposito"></span> <strong>Depósito</strong> - Almacenamiento
-                                temporal</li>
-                        </ul>
-                    </div>
-                    <div>
-                        <div class="legend-title" style="visibility: hidden;">Funcionalidades</div>
-                        <div style="font-size: 0.85rem; font-weight: 700; color: #2563eb; margin-bottom: 10px;">
-                            Funcionalidades:</div>
-                        <ul class="feature-list">
-                            <li><i class="fas fa-check"></i> Control de stock por ubicación</li>
-                            <li><i class="fas fa-check"></i> Transferencias entre ubicaciones</li>
-                            <li><i class="fas fa-check"></i> Órdenes de compra por ubicación</li>
-                            <li><i class="fas fa-check"></i> Reportes de inventario por ubicación</li>
-                        </ul>
-                    </div>
+                    <?php else: ?>
+                        <?php foreach ($ubicaciones as $u):
+                            $badge_class = 'type-' . strtolower($u['tipo']);
+                            ?>
+                            <div class="loc-item-card">
+                                <span class="loc-type-badge <?php echo $badge_class; ?>">
+                                    <?php echo htmlspecialchars($u['tipo']); ?>
+                                </span>
+                                <div class="loc-name">
+                                    <h2><?php echo htmlspecialchars($u['nombre']); ?></h2>
+                                    <?php if ($u['es_principal']): ?>
+                                        <i class="fas fa-star principal-star" title="Ubicación Principal"></i>
+                                    <?php endif; ?>
+                                </div>
+                                <div class="loc-info-list">
+                                    <div class="loc-info-item">
+                                        <i class="fas fa-tag"></i>
+                                        <span>Código: <?php echo htmlspecialchars($u['codigo']); ?></span>
+                                    </div>
+                                    <div class="loc-info-item">
+                                        <i class="fas fa-map-pin"></i>
+                                        <span><?php echo htmlspecialchars($u['direccion']); ?></span>
+                                    </div>
+                                    <div class="loc-info-item">
+                                        <i class="fas fa-phone"></i>
+                                        <span><?php echo htmlspecialchars($u['telefono']); ?></span>
+                                    </div>
+                                    <div class="loc-info-item">
+                                        <i class="fas fa-user-tie"></i>
+                                        <span>Resp: <?php echo htmlspecialchars($u['responsable']); ?></span>
+                                    </div>
+                                </div>
+                                <div class="loc-actions">
+                                    <button class="btn btn-outline" style="flex: 1;"
+                                        onclick="editUbicacion(<?php echo $u['id']; ?>)">
+                                        <i class="fas fa-edit"></i> Editar
+                                    </button>
+                                    <button class="btn btn-outline" style="color: #ef4444; border-color: #fecaca;"
+                                        onclick="deleteUbicacion(<?php echo $u['id']; ?>)">
+                                        <i class="fas fa-trash"></i>
+                                    </button>
+                                </div>
+                            </div>
+                        <?php endforeach; ?>
+                    <?php endif; ?>
                 </div>
             </div>
         </main>
     </div>
+
+    <!-- Modals and script placeholders -->
+    <script>
+        function openCreateModal() { alert('Función de creación próximamente'); }
+        function editUbicacion(id) { alert('Editar ubicación: ' + id); }
+        function deleteUbicacion(id) { if (confirm('¿Desea eliminar esta ubicación?')) alert('Eliminando: ' + id); }
+    </script>
 
     <?php include $root . 'includes/scripts.php'; ?>
 </body>
