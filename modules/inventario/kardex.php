@@ -238,6 +238,11 @@ $current_page = 'inventario_kardex';
             background-color: #94a3b8;
         }
 
+        .clickable-row:hover {
+            background-color: #f1f5f9;
+            cursor: pointer;
+        }
+
         @media (max-width: 768px) {
             .kardex-header {
                 flex-direction: column;
@@ -367,20 +372,24 @@ $current_page = 'inventario_kardex';
                                     elseif (strpos($m['tipoMovimiento'], 'AJUSTE') !== false)
                                         $bg_class = 'bg-ajuste';
                                     ?>
-                                    <tr>
+                                    <tr class="clickable-row" onclick="verDetalle(<?php echo $m['idProducto']; ?>)">
                                         <td style="white-space: nowrap;">
-                                            <?php echo date('d/m/Y H:i', strtotime($m['fecha'])); ?></td>
+                                            <?php echo date('d/m/Y H:i', strtotime($m['fecha'])); ?>
+                                        </td>
                                         <td>
                                             <div style="font-weight: 600; color: #1e293b;">
-                                                <?php echo htmlspecialchars($m['producto_nombre']); ?></div>
+                                                <?php echo htmlspecialchars($m['producto_nombre']); ?>
+                                            </div>
                                             <div style="font-size: 0.75rem; color: #64748b;">
-                                                <?php echo htmlspecialchars($m['barcode']); ?></div>
+                                                <?php echo htmlspecialchars($m['barcode']); ?>
+                                            </div>
                                         </td>
                                         <td><span
                                                 class="type-pill <?php echo $bg_class; ?>"><?php echo $m['tipoMovimiento']; ?></span>
                                         </td>
                                         <td style="max-width: 250px; font-size: 0.8rem;">
-                                            <?php echo htmlspecialchars($m['detalle']); ?></td>
+                                            <?php echo htmlspecialchars($m['detalle']); ?>
+                                        </td>
                                         <td style="text-align: right; color: #10b981; font-weight: 600;">
                                             <?php echo $m['ingreso'] > 0 ? '+' . number_format($m['ingreso'], 2) : '-'; ?>
                                         </td>
@@ -413,6 +422,63 @@ $current_page = 'inventario_kardex';
     </div>
 
     <?php include $root . 'includes/scripts.php'; ?>
+
+    <!-- Modal para Detalle de Kardex -->
+    <div id="kardexModal" class="modal-overlay">
+        <div class="modal-content" style="max-width: 800px;">
+            <div class="modal-header">
+                <h2>Detalle de Movimientos</h2>
+                <button onclick="cerrarModal()" class="btn-text"
+                    style="background: none; border: none; font-size: 1.25rem; color: #64748b; cursor: pointer;"><i
+                        class="fas fa-times"></i></button>
+            </div>
+            <div id="modalBody" class="modal-body">
+                <!-- Se cargará vía AJAX -->
+            </div>
+            <div class="modal-footer">
+                <button onclick="cerrarModal()" class="btn btn-secondary">Cerrar</button>
+                <a id="btnVerMas" href="#" class="btn btn-primary">Ver Pantalla Completa</a>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        function verDetalle(idProducto) {
+            const modal = document.getElementById('kardexModal');
+            const modalBody = document.getElementById('modalBody');
+            const btnVerMas = document.getElementById('btnVerMas');
+
+            modal.style.display = 'flex';
+            modalBody.innerHTML = `
+                <div style="text-align: center; padding: 40px;">
+                    <i class="fas fa-spinner fa-spin fa-3x" style="color: #3b82f6; margin-bottom: 15px;"></i>
+                    <p style="color: #64748b;">Consultando movimientos del producto...</p>
+                </div>
+            `;
+
+            btnVerMas.href = `kardex_detalle.php?id=${idProducto}`;
+
+            fetch(`kardex_detalle.php?id=${idProducto}&ajax=1`)
+                .then(response => response.text())
+                .then(html => {
+                    modalBody.innerHTML = html;
+                })
+                .catch(error => {
+                    modalBody.innerHTML = `<p style="color: red; text-align: center;">Error al cargar los detalles: ${error}</p>`;
+                });
+        }
+
+        function cerrarModal() {
+            document.getElementById('kardexModal').style.display = 'none';
+        }
+
+        window.onclick = function (event) {
+            const modal = document.getElementById('kardexModal');
+            if (event.target == modal) {
+                cerrarModal();
+            }
+        }
+    </script>
 </body>
 
 </html>
