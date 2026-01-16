@@ -237,9 +237,9 @@ $current_page = 'inventario_ubicaciones';
                             <a href="../../index.php">Dashboard</a> / <span>Inventario</span> / <span>Ubicaciones</span>
                         </div>
                     </div>
-                    <button class="btn btn-primary" onclick="openCreateModal()">
+                    <a href="nueva_ubicacion.php" class="btn btn-primary">
                         <i class="fas fa-plus"></i> Nueva Ubicación
-                    </button>
+                    </a>
                 </div>
 
                 <div class="summary-grid-ubic">
@@ -320,7 +320,7 @@ $current_page = 'inventario_ubicaciones';
 
     <!-- Modals and script placeholders -->
     <script>
-        function openCreateModal() { alert('Función de creación próximamente'); }
+        function openCreateModal() { window.location.href = 'nueva_ubicacion.php'; }
         function editUbicacion(id) { alert('Editar ubicación: ' + id); }
         function deleteUbicacion(id) { if (confirm('¿Desea eliminar esta ubicación?')) alert('Eliminando: ' + id); }
     </script>
