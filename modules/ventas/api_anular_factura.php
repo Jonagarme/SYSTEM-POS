@@ -43,9 +43,26 @@ try {
     $stmtDet->execute([$id]);
     $detalles = $stmtDet->fetchAll(PDO::FETCH_ASSOC);
 
-    // 3. Obtener datos de la empresa
-    $empresa = $pdo->query("SELECT * FROM usuarios_configuracionempresa LIMIT 1")->fetch(PDO::FETCH_ASSOC);
-    $dirEstablecimiento = $empresa['direccion'] ?? 'Av. Principal 123';
+    // 3. Obtener datos de la empresa (Intentar tabla empresas primero)
+    try {
+        $stmtE = $pdo->query("SELECT * FROM empresas LIMIT 1");
+        $empresa = $stmtE->fetch(PDO::FETCH_ASSOC);
+    } catch (Exception $e) {
+        $stmtE = $pdo->query("SELECT * FROM usuarios_configuracionempresa LIMIT 1");
+        $empresa = $stmtE->fetch(PDO::FETCH_ASSOC);
+    }
+
+    $dirEstablecimiento = $empresa['direccion_matriz'] ?? $empresa['direccion'] ?? 'Av. Principal 123';
+
+    // Override de certificado para API remota
+    $certPath = trim($empresa['certificado_p12_path'] ?? '');
+    if (empty($certPath) || stripos($certPath, 'C:') !== false || strpos($certPath, '\\') !== false || stripos($certPath, 'Users') !== false) {
+        $certPath = "/home/vol10_3/infinityfree.com/if0_40698217/htdocs/certs/CELIDA_SABINA_GOMEZ_SANCHEZ_151024.p12";
+    }
+    $certPass = trim($empresa['certificado_password'] ?? '');
+    if (empty($certPass) || $certPath == "/home/vol10_3/infinityfree.com/if0_40698217/htdocs/certs/CELIDA_SABINA_GOMEZ_SANCHEZ_151024.p12") {
+        $certPass = "Cg2875caae";
+    }
 
     // 4. Mapeo de identificación para SRI
     $tipoId = '07'; // Consumidor Final por defecto
@@ -60,6 +77,8 @@ try {
     $notaCredito = [
         "tipo" => "notaCredito",
         "data" => [
+            "certificado_p12_path" => $certPath,
+            "certificado_password" => $certPass,
             "fechaEmision" => date('d/m/Y'),
             "dirEstablecimiento" => $dirEstablecimiento,
             "tipoIdentificacionComprador" => $tipoId,
@@ -75,7 +94,7 @@ try {
             "impuestos" => [
                 [
                     "codigo" => "2", // IVA
-                    "codigoPorcentaje" => "2", // 12% o 15% según el sistema
+                    "codigoPorcentaje" => "4", // 15% (Según normativa SRI)
                     "baseImponible" => (float) $venta['subtotal'],
                     "valor" => (float) $venta['iva']
                 ]
@@ -98,8 +117,8 @@ try {
             "impuestos" => [
                 [
                     "codigo" => "2",
-                    "codigoPorcentaje" => "2", // Ajustar según tarifa actual
-                    "tarifa" => 15, // Ejemplo
+                    "codigoPorcentaje" => "4",
+                    "tarifa" => 15,
                     "baseImponible" => (float) ($det['precioUnitario'] * $det['cantidad'] - $det['descuentoValor']),
                     "valor" => (float) $det['ivaValor']
                 ]

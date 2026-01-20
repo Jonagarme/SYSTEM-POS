@@ -87,6 +87,66 @@ try {
     $token = LogifactAPI::login();
     $external_res = null;
     if ($token) {
+        // Inyectar/Corregir ruta de certificado para el servidor remoto
+        try {
+            $stmtE = $pdo->query("SELECT * FROM empresas LIMIT 1");
+            $empresa = $stmtE->fetch(PDO::FETCH_ASSOC);
+        } catch (Exception $e) {
+            $stmtE = $pdo->query("SELECT * FROM usuarios_configuracionempresa LIMIT 1");
+            $empresa = $stmtE->fetch(PDO::FETCH_ASSOC);
+        }
+
+        $certPath = trim($empresa['certificado_p12_path'] ?? '');
+        if (empty($certPath) || stripos($certPath, 'C:') !== false || strpos($certPath, '\\') !== false || stripos($certPath, 'Users') !== false) {
+            $certPath = "/home/vol10_3/infinityfree.com/if0_40698217/htdocs/certs/CELIDA_SABINA_GOMEZ_SANCHEZ_151024.p12";
+        }
+
+        $certPass = trim($empresa['certificado_password'] ?? '');
+        if (empty($certPass) || $certPath == "/home/vol10_3/infinityfree.com/if0_40698217/htdocs/certs/CELIDA_SABINA_GOMEZ_SANCHEZ_151024.p12") {
+            $certPass = "Cg2875caae";
+        }
+
+        // --- NORMALIZACIÓN PARA SRI (Logifact) ---
+        $partesNum = explode('-', $numFactura);
+        $venta['codDoc'] = "01";
+        $venta['establecimiento'] = $partesNum[0];
+        $venta['puntoEmision'] = $partesNum[1];
+        $venta['secuencial'] = $partesNum[2];
+        $venta['ambiente'] = ($empresa['ambiente'] == 2) ? 2 : 1;
+        $venta['tipoEmision'] = "1";
+        $venta['obligadoContabilidad'] = (isset($empresa['obligado_contabilidad']) && ($empresa['obligado_contabilidad'] == '1' || $empresa['obligado_contabilidad'] == 'SI')) ? "SI" : "NO";
+
+        // Formatear montos a 2 decimales (texto para evitar precisión flotante)
+        $venta['totalSinImpuestos'] = number_format((float) $venta['totalSinImpuestos'], 2, '.', '');
+        $venta['totalDescuento'] = number_format((float) $venta['totalDescuento'], 2, '.', '');
+        $venta['importeTotal'] = number_format((float) $venta['importeTotal'], 2, '.', '');
+
+        if (isset($venta['impuestos'][0])) {
+            $venta['impuestos'][0]['baseImponible'] = number_format((float) $venta['impuestos'][0]['baseImponible'], 2, '.', '');
+            $venta['impuestos'][0]['valor'] = number_format((float) $venta['impuestos'][0]['valor'], 2, '.', '');
+            $venta['impuestos'][0]['codigoPorcentaje'] = "4"; // IVA 15%
+        }
+
+        if (isset($venta['pagos'][0])) {
+            $venta['pagos'][0]['total'] = number_format((float) $venta['pagos'][0]['total'], 2, '.', '');
+        }
+
+        foreach ($venta['detalles'] as &$det) {
+            $det['cantidad'] = number_format((float) $det['cantidad'], 6, '.', '');
+            $det['precioUnitario'] = number_format((float) $det['precioUnitario'], 6, '.', '');
+            $det['descuento'] = number_format((float) $det['descuento'], 2, '.', '');
+            $det['precioTotalSinImpuesto'] = number_format((float) $det['precioTotalSinImpuesto'], 2, '.', '');
+            if (isset($det['impuestos'][0])) {
+                $det['impuestos'][0]['baseImponible'] = number_format((float) $det['impuestos'][0]['baseImponible'], 2, '.', '');
+                $det['impuestos'][0]['valor'] = number_format((float) $det['impuestos'][0]['valor'], 2, '.', '');
+                $det['impuestos'][0]['codigoPorcentaje'] = "4"; // IVA 15%
+                $det['impuestos'][0]['tarifa'] = 15;
+            }
+        }
+
+        $venta['certificado_p12_path'] = $certPath;
+        $venta['certificado_password'] = $certPass;
+
         $external_res = LogifactAPI::sendInvoice($venta, $token);
     }
 

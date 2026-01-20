@@ -1527,7 +1527,7 @@ $date_now = date('d/m/Y H:i');
                     "impuestos": [
                         {
                             "codigo": "2",
-                            "codigoPorcentaje": "2",
+                            "codigoPorcentaje": "4",
                             "baseImponible": parseFloat(subtotalWithDiscount.toFixed(2)),
                             "valor": parseFloat(ivaVal.toFixed(2))
                         }
@@ -1548,7 +1548,7 @@ $date_now = date('d/m/Y H:i');
                         "impuestos": [
                             {
                                 "codigo": "2",
-                                "codigoPorcentaje": "2",
+                                "codigoPorcentaje": "4",
                                 "tarifa": 15,
                                 "baseImponible": parseFloat((item.price * item.quantity).toFixed(2)),
                                 "valor": parseFloat((item.price * item.quantity * 0.15).toFixed(2))

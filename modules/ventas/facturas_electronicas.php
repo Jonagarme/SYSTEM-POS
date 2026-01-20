@@ -49,6 +49,7 @@ $facturas_count = count($facturas);
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="stylesheet" href="../../assets/css/style.css">
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     <style>
         .ef-header-banner {
             background: #6366f1;
@@ -135,14 +136,28 @@ $facturas_count = count($facturas);
             background: #f8fafc;
         }
 
-        .badge-pagada {
-            background: #dcfce7;
-            color: #15803d;
+        .badge-status {
             font-size: 0.65rem;
             font-weight: 700;
             padding: 4px 10px;
             border-radius: 12px;
             text-transform: uppercase;
+            display: inline-block;
+        }
+
+        .badge-autorizada {
+            background: #dcfce7;
+            color: #15803d;
+        }
+
+        .badge-pendiente {
+            background: #fef9c3;
+            color: #854d0e;
+        }
+
+        .badge-error {
+            background: #fee2e2;
+            color: #991b1b;
         }
 
         .action-btns {
@@ -441,11 +456,24 @@ $facturas_count = count($facturas);
                                     <td style="font-weight: 800;">$
                                         <?php echo number_format($f['total'], 2); ?>
                                     </td>
-                                    <td><span class="badge-pagada">
-                                            <?php echo $f['estado']; ?>
-                                        </span></td>
+                                    <td>
+                                        <?php
+                                        $estadoFactura = $f['estadoFactura'] ?? 'PENDIENTE';
+                                        $badgeClass = 'badge-pendiente';
+                                        if ($estadoFactura == 'AUTORIZADA')
+                                            $badgeClass = 'badge-autorizada';
+                                        if ($estadoFactura == 'RECHAZADO' || $estadoFactura == 'DEVUELTA')
+                                            $badgeClass = 'badge-error';
+                                        ?>
+                                        <span class="badge-status <?php echo $badgeClass; ?>">
+                                            <?php echo $estadoFactura; ?>
+                                        </span>
+                                    </td>
                                     <td style="font-size: 0.75rem; color: #64748b;">
-                                        <?php echo $f['numeroAutorizacion'] ?: 'Sin autorización'; ?>
+                                        <?php
+                                        $authVal = $f['numeroAutorizacion'];
+                                        echo (empty($authVal) || $authVal == 'Array') ? 'Sin autorización' : $authVal;
+                                        ?>
                                     </td>
                                     <td>
                                         <div class="action-btns">
@@ -457,11 +485,17 @@ $facturas_count = count($facturas);
                                                 <button class="btn-action btn-dots"><i
                                                         class="fas fa-ellipsis-v"></i></button>
                                                 <div class="dropdown-content">
-                                                    <div class="dropdown-item"><i class="fas fa-paper-plane"
-                                                            style="color: #3b82f6;"></i> Enviar al SRI</div>
-                                                    <div class="dropdown-item danger"><i class="fas fa-times-circle"></i>
-                                                        Anular
-                                                        Factura</div>
+                                                    <?php if ($estadoFactura != 'AUTORIZADA'): ?>
+                                                        <div class="dropdown-item"
+                                                            onclick="reenviarSRI(<?php echo $f['id']; ?>)">
+                                                            <i class="fas fa-paper-plane" style="color: #3b82f6;"></i> Enviar al
+                                                            SRI
+                                                        </div>
+                                                    <?php endif; ?>
+                                                    <div class="dropdown-item danger"
+                                                        onclick="anularFactura(<?php echo $f['id']; ?>)">
+                                                        <i class="fas fa-times-circle"></i> Anular Factura
+                                                    </div>
                                                 </div>
                                             </div>
                                         </div>
@@ -652,6 +686,102 @@ $facturas_count = count($facturas);
             } catch (e) {
                 console.error(e);
                 alert('Error al cargar detalles: ' + e.message);
+            }
+        }
+
+        async function anularFactura(id) {
+            const result = await Swal.fire({
+                title: '¿Anular factura?',
+                text: "Se generará una Nota de Crédito electrónica y se revertirá el stock.",
+                icon: 'warning',
+                showCancelButton: true,
+                confirmButtonColor: '#ef4444',
+                cancelButtonColor: '#64748b',
+                confirmButtonText: 'Sí, anular',
+                cancelButtonText: 'Cancelar'
+            });
+
+            if (!result.isConfirmed) return;
+
+            Swal.fire({
+                title: 'Procesando...',
+                text: 'Anulando factura y generando nota de crédito.',
+                allowOutsideClick: false,
+                didOpen: () => { Swal.showLoading(); }
+            });
+
+            try {
+                const response = await fetch('api_anular_factura.php', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ id: id })
+                });
+
+                const res = await response.json();
+
+                if (res.success) {
+                    Swal.fire({
+                        title: '¡Anulada!',
+                        text: 'Factura anulada con éxito. Nota de Crédito: ' + (res.nota_credito || 'Generada'),
+                        icon: 'success'
+                    }).then(() => window.location.reload());
+                } else {
+                    Swal.fire('Error', res.error, 'error');
+                }
+            } catch (error) {
+                console.error(error);
+                Swal.fire('Error', 'Error de conexión al anular la factura', 'error');
+            }
+        }
+
+        async function reenviarSRI(id) {
+            const result = await Swal.fire({
+                title: 'Enviar al SRI',
+                text: "¿Estás seguro de que deseas enviar esta factura para su autorización?",
+                icon: 'question',
+                showCancelButton: true,
+                confirmButtonColor: '#6366f1',
+                cancelButtonColor: '#64748b',
+                confirmButtonText: 'Sí, enviar ahora',
+                cancelButtonText: 'Cancelar'
+            });
+
+            if (!result.isConfirmed) return;
+
+            // Mostrar estado de carga
+            Swal.fire({
+                title: 'Enviando al SRI',
+                text: 'Por favor, espera mientras procesamos el documento...',
+                allowOutsideClick: false,
+                didOpen: () => { Swal.showLoading(); }
+            });
+
+            try {
+                const response = await fetch('api_enviar_sri.php', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ id: id })
+                });
+
+                const res = await response.json();
+
+                if (res.success) {
+                    Swal.fire({
+                        title: '¡Éxito!',
+                        text: 'La factura ha sido enviada y procesada correctamente.',
+                        icon: 'success',
+                        footer: 'Autorización: ' + (res.external?.autorizacion || res.external?.claveAcceso || 'Recibida')
+                    }).then(() => window.location.reload());
+                } else {
+                    Swal.fire({
+                        title: 'Hubo un problema',
+                        text: res.error,
+                        icon: 'error'
+                    });
+                }
+            } catch (error) {
+                console.error(error);
+                Swal.fire('Error', 'No pudimos conectar con el servidor', 'error');
             }
         }
 
