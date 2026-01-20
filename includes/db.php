@@ -13,7 +13,7 @@ $isLocal = ($_SERVER['HTTP_HOST'] == 'localhost' ||
 if ($isLocal) {
     // Configuración Local (Tu PC)
     $host = 'localhost';
-    $db = 'logipharmbd';
+    $db = 'SistemaPosDB';
     $user = 'root';
     $pass = '0801';
 } else {
@@ -34,6 +34,9 @@ $options = [
 
 try {
     $pdo = new PDO($dsn, $user, $pass, $options);
+    // Set timezone to Ecuador
+    date_default_timezone_set('America/Guayaquil');
+    $pdo->exec("SET time_zone = '-05:00'");
 } catch (\PDOException $e) {
     // If you haven't created the database yet, this will fail.
     // We'll handle this in the setup script.
