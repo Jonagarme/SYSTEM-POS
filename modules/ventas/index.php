@@ -8,12 +8,18 @@ require_once '../../includes/auth.php';
 
 $current_page = 'ventas';
 
+$idCliente = $_GET['idCliente'] ?? '';
 $search = $_GET['search'] ?? '';
 $fecha_inicio = $_GET['fecha_inicio'] ?? '2025-01-01';
 $fecha_fin = $_GET['fecha_fin'] ?? date('Y-m-d');
 
 $where = "WHERE f.anulado = 0 AND DATE(f.fechaEmision) BETWEEN ? AND ?";
 $params = [$fecha_inicio, $fecha_fin];
+
+if (!empty($idCliente)) {
+    $where .= " AND f.idCliente = ?";
+    $params[] = $idCliente;
+}
 
 if (!empty($search)) {
     $where .= " AND (f.numeroFactura LIKE ? OR c.nombres LIKE ? OR c.apellidos LIKE ? OR u.nombreUsuario LIKE ?)";

@@ -6,27 +6,73 @@ session_start();
 require_once '../../includes/db.php';
 
 $id = $_GET['id'] ?? 0;
-// In a real app, fetch data from DB using $id
-// For now, using mock data matching the user's screenshot
+
+if (!$id) {
+    die("ID de factura no proporcionado.");
+}
+
+// 1. Obtener cabecera de la factura, datos del cliente y vendedor
+$stmt = $pdo->prepare("
+    SELECT f.*, 
+    CONCAT(c.nombres, ' ', COALESCE(c.apellidos, '')) as cliente_nombre,
+    c.cedula_ruc as cliente_ruc,
+    c.direccion as cliente_direccion,
+    c.celular as cliente_celular,
+    c.email as cliente_email,
+    u.nombreUsuario as vendedor_nombre
+    FROM facturas_venta f
+    LEFT JOIN clientes c ON f.idCliente = c.id
+    LEFT JOIN usuarios u ON f.idUsuario = u.id
+    WHERE f.id = ?
+");
+$stmt->execute([$id]);
+$data = $stmt->fetch(PDO::FETCH_ASSOC);
+
+if (!$data) {
+    die("Factura no encontrada.");
+}
+
+// Mapeo a los nombres de variables usados en la vista
 $factura = [
-    'numero' => '001-001-000000018',
-    'fecha' => '02/12/2025 20:2B',
-    'creacion' => '02/12/2025 20:28',
-    'cliente' => 'AARON NATANAEL FARIAS TEJADA',
-    'identificacion' => 'CEDULA: 0951543594',
-    'telefono' => '099',
-    'email' => 'N/A',
-    'direccion' => 'GUAYAS/GUAYAQUIL/FEBRES CORDERO III CLLJN Q ENTRE 26 Y 27 NN',
-    'estado' => 'PAGADA',
-    'vendedor' => 'Cesar Coronel',
-    'subtotal' => '6.00',
-    'iva' => '0.90',
-    'total' => '6.90'
+    'numero' => $data['numeroFactura'],
+    'fecha' => date('d/m/Y H:i', strtotime($data['fechaEmision'])),
+    'creacion' => date('d/m/Y H:i', strtotime($data['creadoDate'])),
+    'cliente' => $data['cliente_nombre'],
+    'identificacion' => $data['cliente_ruc'],
+    'telefono' => $data['cliente_celular'] ?: 'N/A',
+    'email' => $data['cliente_email'] ?: 'N/A',
+    'direccion' => $data['cliente_direccion'] ?: 'N/A',
+    'estado' => $data['estado'],
+    'vendedor' => $data['vendedor_nombre'] ?: 'Admin',
+    'id_cliente' => $data['idCliente'],
+    'subtotal' => number_format($data['subtotal'], 2),
+    'iva' => number_format($data['iva'], 2),
+    'total' => number_format($data['total'], 2)
 ];
 
-$productos = [
-    ['id' => '506', 'codigo' => '7861001363982', 'nombre' => 'CREMA PARA PEINAR - SAVITAL MULTIVITAMINAS Y SABILA 22ML', 'cant' => '2.00', 'precio' => '3.00', 'desc' => '-', 'iva' => '0.90', 'total' => '6.90']
-];
+// 2. Obtener detalles de la factura y unir con productos para el código
+$stmtDet = $pdo->prepare("
+    SELECT d.*, p.codigoPrincipal as codigo 
+    FROM facturas_venta_detalle d
+    LEFT JOIN productos p ON d.idProducto = p.id
+    WHERE d.idFacturaVenta = ?
+");
+$stmtDet->execute([$id]);
+$productos_db = $stmtDet->fetchAll(PDO::FETCH_ASSOC);
+
+$productos = [];
+foreach ($productos_db as $p) {
+    $productos[] = [
+        'id' => $p['idProducto'],
+        'codigo' => $p['codigo'],
+        'nombre' => $p['productoNombre'],
+        'cant' => number_format($p['cantidad'], 2),
+        'precio' => number_format($p['precioUnitario'], 2),
+        'desc' => number_format($p['descuentoValor'], 2),
+        'iva' => number_format($p['ivaValor'], 2),
+        'total' => number_format($p['total'], 2)
+    ];
+}
 ?>
 <!DOCTYPE html>
 <html lang="es">
@@ -444,16 +490,61 @@ $productos = [
                 <!-- Actions Bar -->
                 <div class="actions-bar">
                     <span class="actions-label"><i class="fas fa-cogs"></i> Acciones</span>
-                    <button class="btn-action-full btn-print"><i class="fas fa-print"></i> Imprimir Factura</button>
-                    <button class="btn-action-full btn-history"><i class="fas fa-history"></i> Ver Historial del
-                        Cliente</button>
-                    <button class="btn-action-full btn-void"><i class="fas fa-ban"></i> Anular Factura</button>
+                    <button class="btn-action-full btn-print" onclick="window.print()">
+                        <i class="fas fa-print"></i> Imprimir Factura
+                    </button>
+                    <button class="btn-action-full btn-history"
+                        onclick="verHistorial(<?php echo $factura['id_cliente']; ?>)">
+                        <i class="fas fa-history"></i> Ver Historial del Cliente
+                    </button>
+                    <button class="btn-action-full btn-void" onclick="anularFactura(<?php echo $id; ?>)">
+                        <i class="fas fa-ban"></i> Anular Factura
+                    </button>
                 </div>
 
             </div>
         </main>
     </div>
     <?php include $root . 'includes/scripts.php'; ?>
+    <script>
+        function verHistorial(idCliente) {
+            window.location.href = 'index.php?idCliente=' + idCliente;
+        }
+
+        async function anularFactura(id) {
+            if (!confirm('¿Estás seguro de que deseas anular esta factura? Se generará una Nota de Crédito electrónica.')) {
+                return;
+            }
+
+            const btn = document.querySelector('.btn-void');
+            const originalText = btn.innerHTML;
+            btn.disabled = true;
+            btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Anulando...';
+
+            try {
+                const response = await fetch('api_anular_factura.php', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ id: id })
+                });
+
+                const res = await response.json();
+
+                if (res.success) {
+                    alert('Factura anulada con éxito. Nota de Crédito generada: ' + (res.nota_credito || 'Pendiente'));
+                    window.location.reload();
+                } else {
+                    alert('Error: ' + res.error);
+                }
+            } catch (error) {
+                console.error(error);
+                alert('Error de conexión al anular la factura');
+            } finally {
+                btn.disabled = false;
+                btn.innerHTML = originalText;
+            }
+        }
+    </script>
 </body>
 
 </html>
