@@ -252,6 +252,60 @@ $current_page = 'inventario_kardex';
             .filters-panel-kardex {
                 grid-template-columns: 1fr;
             }
+
+            /* Card-based table on mobile */
+            .table-responsive {
+                background: transparent;
+                box-shadow: none;
+            }
+
+            table thead {
+                display: none;
+            }
+
+            table,
+            tbody,
+            tr,
+            td {
+                display: block;
+                width: 100%;
+            }
+
+            tr.clickable-row {
+                background: white;
+                margin-bottom: 15px;
+                border: 1px solid #e2e8f0;
+                border-radius: 12px;
+                padding: 15px;
+                box-shadow: var(--shadow-sm);
+            }
+
+            td {
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                text-align: right;
+                padding: 10px 0;
+                border-bottom: 1px solid #f1f5f9;
+            }
+
+            td:last-child {
+                border-bottom: none;
+            }
+
+            td::before {
+                content: attr(data-label);
+                font-weight: 700;
+                font-size: 0.7rem;
+                color: #64748b;
+                text-transform: uppercase;
+                text-align: left;
+                margin-right: 10px;
+            }
+
+            .type-pill {
+                font-size: 0.6rem;
+            }
         }
     </style>
 </head>
@@ -373,30 +427,30 @@ $current_page = 'inventario_kardex';
                                         $bg_class = 'bg-ajuste';
                                     ?>
                                     <tr class="clickable-row" onclick="verDetalle(<?php echo $m['idProducto']; ?>)">
-                                        <td style="white-space: nowrap;">
+                                        <td data-label="Fecha / Hora" style="white-space: nowrap;">
                                             <?php echo date('d/m/Y H:i', strtotime($m['fecha'])); ?>
                                         </td>
-                                        <td>
-                                            <div style="font-weight: 600; color: #1e293b;">
+                                        <td data-label="Producto">
+                                            <div style="font-weight: 600; color: #1e293b; text-align: right;">
                                                 <?php echo htmlspecialchars($m['producto_nombre']); ?>
                                             </div>
                                             <div style="font-size: 0.75rem; color: #64748b;">
                                                 <?php echo htmlspecialchars($m['barcode']); ?>
                                             </div>
                                         </td>
-                                        <td><span
+                                        <td data-label="Tipo"><span
                                                 class="type-pill <?php echo $bg_class; ?>"><?php echo $m['tipoMovimiento']; ?></span>
                                         </td>
-                                        <td style="max-width: 250px; font-size: 0.8rem;">
+                                        <td data-label="Detalle / Referencia" style="max-width: 250px; font-size: 0.8rem;">
                                             <?php echo htmlspecialchars($m['detalle']); ?>
                                         </td>
-                                        <td style="text-align: right; color: #10b981; font-weight: 600;">
+                                        <td data-label="Ingreso" style="text-align: right; color: #10b981; font-weight: 600;">
                                             <?php echo $m['ingreso'] > 0 ? '+' . number_format($m['ingreso'], 2) : '-'; ?>
                                         </td>
-                                        <td style="text-align: right; color: #ef4444; font-weight: 600;">
+                                        <td data-label="Egreso" style="text-align: right; color: #ef4444; font-weight: 600;">
                                             <?php echo $m['egreso'] > 0 ? '-' . number_format($m['egreso'], 2) : '-'; ?>
                                         </td>
-                                        <td style="text-align: right; font-weight: 700; color: #1e293b;">
+                                        <td data-label="Saldo" style="text-align: right; font-weight: 700; color: #1e293b;">
                                             <?php echo number_format($m['saldo'], 2); ?>
                                         </td>
                                     </tr>
