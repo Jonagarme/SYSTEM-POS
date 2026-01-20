@@ -6,45 +6,54 @@ session_start();
 require_once 'includes/db.php';
 require_once 'includes/auth.php';
 
-// Fetch real stats
+// Fetch real stats usando fechas calculadas en PHP para evitar descuadres de zona horaria
 $today = date('Y-m-d');
+$firstOfMonth = date('Y-m-01');
+$sevenDaysAgo = date('Y-m-d', strtotime('-7 days'));
+
+// 1. Ventas del día
 $sales_today = $pdo->query("SELECT SUM(total) FROM facturas_venta WHERE DATE(fechaEmision) = '$today' AND anulado = 0")->fetchColumn() ?: 0;
 $sales_count = $pdo->query("SELECT COUNT(*) FROM facturas_venta WHERE DATE(fechaEmision) = '$today' AND anulado = 0")->fetchColumn();
-$new_clients = $pdo->query("SELECT COUNT(*) FROM clientes WHERE DATE(creadoDate) >= DATE_SUB(CURDATE(), INTERVAL 30 DAY) AND anulado = 0")->fetchColumn();
-$low_stock = $pdo->query("SELECT COUNT(*) FROM productos WHERE stock <= stockMinimo AND stock > 0 AND anulado = 0")->fetchColumn();
 
-// Weekly and Monthly Sales
-$sales_week = $pdo->query("SELECT SUM(total) FROM facturas_venta WHERE fechaEmision >= DATE_SUB(CURDATE(), INTERVAL 7 DAY) AND anulado = 0")->fetchColumn() ?: 0;
-$sales_month = $pdo->query("SELECT SUM(total) FROM facturas_venta WHERE MONTH(fechaEmision) = MONTH(CURDATE()) AND YEAR(fechaEmision) = YEAR(CURDATE()) AND anulado = 0")->fetchColumn() ?: 0;
+// 2. Nuevos clientes (Columna: creadoDate)
+$new_clients = $pdo->query("SELECT COUNT(*) FROM clientes WHERE creadoDate >= DATE_SUB(NOW(), INTERVAL 30 DAY)")->fetchColumn() ?: 0;
 
-// Data for daily sales chart (last 7 days)
-$stmtChart = $pdo->query("
+// 3. Stock bajo (Columnas: stock, stockMinimo)
+$low_stock = $pdo->query("SELECT COUNT(*) FROM productos WHERE stock <= stockMinimo AND anulado = 0")->fetchColumn() ?: 0;
+
+// 4. Ventas de la semana y el mes
+$sales_week = $pdo->query("SELECT SUM(total) FROM facturas_venta WHERE fechaEmision >= '$sevenDaysAgo' AND anulado = 0")->fetchColumn() ?: 0;
+$sales_month = $pdo->query("SELECT SUM(total) FROM facturas_venta WHERE fechaEmision >= '$firstOfMonth' AND anulado = 0")->fetchColumn() ?: 0;
+
+// 5. Datos para el gráfico (últimos 7 días)
+$stmtChart = $pdo->prepare("
     SELECT DATE(fechaEmision) as fecha, SUM(total) as total 
     FROM facturas_venta 
-    WHERE fechaEmision >= DATE_SUB(CURDATE(), INTERVAL 7 DAY) AND anulado = 0
+    WHERE fechaEmision >= ? AND anulado = 0
     GROUP BY DATE(fechaEmision) 
     ORDER BY fecha ASC
 ");
+$stmtChart->execute([$sevenDaysAgo]);
 $chart_data = $stmtChart->fetchAll(PDO::FETCH_KEY_PAIR);
 
-// Fill missing days with 0 for the chart
+// Rellenar días faltantes con 0
 $daily_sales = [];
 for ($i = 6; $i >= 0; $i--) {
     $d = date('Y-m-d', strtotime("-$i days"));
     $daily_sales[$d] = $chart_data[$d] ?? 0;
 }
 
-// Fetch last sales
+// 6. Últimas ventas
 $stmtSales = $pdo->query("
-    SELECT f.*, CONCAT(c.nombres, ' ', c.apellidos) as cliente_nombre 
+    SELECT f.*, 
+    COALESCE(CONCAT(c.nombres, ' ', c.apellidos), 'CONSUMIDOR FINAL') as cliente_nombre 
     FROM facturas_venta f 
     LEFT JOIN clientes c ON f.idCliente = c.id 
     WHERE f.anulado = 0 
-    ORDER BY f.fechaEmision DESC LIMIT 8
+    ORDER BY f.fechaEmision DESC, f.id DESC LIMIT 8
 ");
 $recent_sales = $stmtSales->fetchAll();
 
-// Mock login for now
 $_SESSION['user_name'] = "Usuario Administrador";
 $_SESSION['role'] = "Administrador";
 ?>
@@ -55,11 +64,8 @@ $_SESSION['role'] = "Administrador";
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Sistema POS | Dashboard</title>
-    <!-- Google Fonts -->
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-    <!-- Font Awesome -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <!-- Custom CSS -->
     <link rel="stylesheet" href="assets/css/style.css">
     <link rel="stylesheet" href="assets/css/dashboard.css">
 </head>
@@ -72,11 +78,9 @@ $_SESSION['role'] = "Administrador";
         include 'includes/sidebar.php';
         ?>
 
-        <!-- Main Content -->
         <main class="main-content">
             <?php include 'includes/navbar.php'; ?>
 
-            <!-- Page Content -->
             <div class="content-wrapper">
                 <div class="page-header">
                     <h1>Dashboard</h1>
@@ -88,7 +92,6 @@ $_SESSION['role'] = "Administrador";
                     </nav>
                 </div>
 
-                <!-- Stats Cards -->
                 <div class="stats-grid">
                     <div class="stat-card blue">
                         <div class="stat-icon"><i class="fas fa-dollar-sign"></i></div>
@@ -101,15 +104,15 @@ $_SESSION['role'] = "Administrador";
                     <div class="stat-card green">
                         <div class="stat-icon"><i class="fas fa-shopping-bag"></i></div>
                         <div class="stat-details">
-                            <h3><?php echo $sales_count; ?></h3>
+                            <h3><?php echo number_format($sales_today > 0 ? $sales_count : 0); ?></h3>
                             <p>Ventas Realizadas</p>
                         </div>
-                        <div class="stat-trend">Hoy</div>
+                        <div class="stat-trend positive">Hoy</div>
                     </div>
                     <div class="stat-card cyan">
                         <div class="stat-icon"><i class="fas fa-users"></i></div>
                         <div class="stat-details">
-                            <h3><?php echo $new_clients; ?></h3>
+                            <h3><?php echo number_format($new_clients); ?></h3>
                             <p>Nuevos Clientes</p>
                         </div>
                         <div class="stat-trend">Últimos 30 días</div>
@@ -117,14 +120,13 @@ $_SESSION['role'] = "Administrador";
                     <div class="stat-card orange">
                         <div class="stat-icon"><i class="fas fa-exclamation-triangle"></i></div>
                         <div class="stat-details">
-                            <h3><?php echo $low_stock; ?></h3>
+                            <h3><?php echo number_format($low_stock); ?></h3>
                             <p>Stock Bajo</p>
                         </div>
                         <div class="stat-trend negative">Alerta</div>
                     </div>
                 </div>
 
-                <!-- Quick Actions / Recent Activity -->
                 <div class="dashboard-grid">
                     <div class="card main-chart">
                         <div class="card-header">
@@ -146,7 +148,7 @@ $_SESSION['role'] = "Administrador";
                                 </div>
                             </div>
                         </div>
-                        <div class="card-body">
+                        <div class="card-body" id="dashboard-sales-chart">
                             <div class="weekly-bars-container"
                                 style="display: flex; align-items: flex-end; justify-content: space-between; height: 180px; padding: 20px 10px; gap: 10px;">
                                 <?php
@@ -163,13 +165,16 @@ $_SESSION['role'] = "Administrador";
                                         <div class="bar-fill"
                                             style="width: 100%; height: <?php echo $height; ?>%; background: linear-gradient(to top, #0061f2, #60a5fa); border-radius: 4px; min-height: 4px; transition: height 0.3s ease;">
                                         </div>
-                                        <div class="bar-label" style="font-size: 0.7rem; color: #64748b; font-weight: 600;">
-                                            <?php echo $day_name; ?></div>
+                                        <div class="bar-label"
+                                            style="font-size: 0.65rem; color: #64748b; font-weight: 600; text-transform: uppercase;">
+                                            <?php echo $day_name; ?>
+                                        </div>
                                     </div>
                                 <?php endforeach; ?>
                             </div>
                         </div>
                     </div>
+
                     <div class="card recent-sales">
                         <div class="card-header">
                             <h2>Últimas Ventas</h2>
@@ -186,26 +191,19 @@ $_SESSION['role'] = "Administrador";
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    <?php if (empty($recent_sales)): ?>
-                                        <tr class="empty-row">
-                                            <td colspan="4" style="text-align: center; color: #999;">No hay ventas recientes
+                                    <?php foreach ($recent_sales as $sale): ?>
+                                        <tr>
+                                            <td style="font-weight: 600; color: #0061f2; font-size: 0.8rem;">
+                                                <?php echo $sale['numeroFactura']; ?>
                                             </td>
+                                            <td style="font-size: 0.8rem; font-weight: 500;">
+                                                <?php echo htmlspecialchars($sale['cliente_nombre']); ?>
+                                            </td>
+                                            <td style="font-weight: 700; font-size: 0.8rem;">
+                                                $<?php echo number_format($sale['total'], 2); ?></td>
+                                            <td><span class="badge badge-success"><?php echo $sale['estado']; ?></span></td>
                                         </tr>
-                                    <?php else: ?>
-                                        <?php foreach ($recent_sales as $sale): ?>
-                                            <tr>
-                                                <td style="font-weight: 600; color: #0061f2;">
-                                                    <?php echo $sale['numeroFactura']; ?>
-                                                </td>
-                                                <td><?php echo htmlspecialchars($sale['cliente_nombre'] ?? 'CONSUMIDOR FINAL'); ?>
-                                                </td>
-                                                <td>$<?php echo number_format($sale['total'], 2); ?></td>
-                                                <td><span class="badge-status-u"
-                                                        style="padding: 2px 8px; border-radius: 4px; font-size: 0.7rem; background: #dcfce7; color: #15803d;"><?php echo $sale['estado']; ?></span>
-                                                </td>
-                                            </tr>
-                                        <?php endforeach; ?>
-                                    <?php endif; ?>
+                                    <?php endforeach; ?>
                                 </tbody>
                             </table>
                         </div>
@@ -214,7 +212,6 @@ $_SESSION['role'] = "Administrador";
             </div>
         </main>
     </div>
-
     <?php include 'includes/scripts.php'; ?>
 </body>
 
