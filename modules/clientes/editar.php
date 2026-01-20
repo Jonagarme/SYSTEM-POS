@@ -38,6 +38,27 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="stylesheet" href="../../assets/css/style.css">
+    <style>
+        @media (max-width: 768px) {
+            .form-grid {
+                grid-template-columns: 1fr !important;
+            }
+
+            .form-actions {
+                flex-direction: column-reverse;
+            }
+
+            .form-actions a,
+            .form-actions button {
+                width: 100%;
+                justify-content: center;
+            }
+
+            .content-wrapper {
+                padding: 15px;
+            }
+        }
+    </style>
 </head>
 
 <body>
@@ -55,7 +76,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
                     <form action="" method="POST"
                         style="background: white; padding: 30px; border-radius: 12px; box-shadow: var(--shadow-sm);">
-                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
+                        <div class="form-grid" style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
                             <div class="form-group">
                                 <label>Nombres *</label>
                                 <input type="text" name="nombres" class="form-control"
@@ -94,7 +115,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                                     rows="3"><?php echo htmlspecialchars($cliente['direccion']); ?></textarea>
                             </div>
                         </div>
-                        <div style="margin-top: 30px; display: flex; gap: 15px; justify-content: flex-end;">
+                        <div class="form-actions"
+                            style="margin-top: 30px; display: flex; gap: 15px; justify-content: flex-end;">
                             <a href="index.php" class="btn btn-secondary">Cancelar</a>
                             <button type="submit" class="btn btn-primary"><i class="fas fa-save"></i> Guardar
                                 Cambios</button>

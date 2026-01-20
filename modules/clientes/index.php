@@ -107,6 +107,81 @@ $clientes = $stmt->fetchAll();
             background: #fff1f2;
             color: #e11d48;
         }
+
+        /* Responsive Improvements */
+        @media (max-width: 768px) {
+            .u-header {
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 15px;
+            }
+
+            .u-header div:last-child {
+                width: 100%;
+                flex-direction: column;
+            }
+
+            .u-header form {
+                width: 100%;
+            }
+
+            .u-header form input {
+                width: 100% !important;
+            }
+
+            .u-header .btn-primary {
+                width: 100%;
+                justify-content: center;
+            }
+
+            /* Card-based table on mobile */
+            .u-table thead {
+                display: none;
+            }
+
+            .u-table,
+            .u-table tbody,
+            .u-table tr,
+            .u-table td {
+                display: block;
+                width: 100%;
+            }
+
+            .u-table tr {
+                margin-bottom: 15px;
+                border: 1px solid #e2e8f0;
+                border-radius: 12px;
+                padding: 10px;
+                background: #f8fafc;
+            }
+
+            .u-table td {
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                text-align: right;
+                padding: 10px 5px;
+                border-bottom: 1px solid #edf2f7;
+            }
+
+            .u-table td:last-child {
+                border-bottom: none;
+            }
+
+            .u-table td::before {
+                content: attr(data-label);
+                font-weight: 700;
+                font-size: 0.7rem;
+                color: #64748b;
+                text-transform: uppercase;
+                text-align: left;
+                margin-right: 10px;
+            }
+
+            .u-actions {
+                justify-content: flex-end;
+            }
+        }
     </style>
 </head>
 
@@ -154,7 +229,7 @@ $clientes = $stmt->fetchAll();
                     </div>
                 </div>
 
-                <div class="u-table-container">
+                <div class="u-table-container" style="background: transparent; box-shadow: none;">
                     <table class="u-table">
                         <thead>
                             <tr>
@@ -169,13 +244,14 @@ $clientes = $stmt->fetchAll();
                         <tbody>
                             <?php foreach ($clientes as $c): ?>
                                 <tr>
-                                    <td>
-                                        <div style="display: flex; align-items: center; gap: 12px;">
+                                    <td data-label="CLIENTE">
+                                        <div
+                                            style="display: flex; align-items: center; gap: 12px; justify-content: flex-end;">
                                             <div
                                                 style="width: 35px; height: 35px; background: #e0f2fe; color: #0369a1; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 700;">
                                                 <?php echo strtoupper(substr($c['nombres'], 0, 1)); ?>
                                             </div>
-                                            <div>
+                                            <div style="text-align: right;">
                                                 <strong style="display: block; color: #1e293b;">
                                                     <?php echo htmlspecialchars($c['nombres'] . ' ' . $c['apellidos']); ?>
                                                 </strong>
@@ -185,10 +261,10 @@ $clientes = $stmt->fetchAll();
                                             </div>
                                         </div>
                                     </td>
-                                    <td><strong>
+                                    <td data-label="IDENTIFICACIÓN"><strong>
                                             <?php echo htmlspecialchars($c['cedula_ruc']); ?>
                                         </strong></td>
-                                    <td>
+                                    <td data-label="CONTACTO">
                                         <div style="font-size: 0.8rem;">
                                             <div><i class="fas fa-phone" style="width: 15px;"></i>
                                                 <?php echo htmlspecialchars($c['celular']); ?>
@@ -199,13 +275,13 @@ $clientes = $stmt->fetchAll();
                                             </div>
                                         </div>
                                     </td>
-                                    <td style="max-width: 200px; font-size: 0.8rem; color: #475569;">
+                                    <td data-label="UBICACIÓN" style="max-width: 200px; font-size: 0.8rem; color: #475569;">
                                         <?php echo htmlspecialchars($c['direccion']); ?>
                                     </td>
-                                    <td><span class="badge-verified">
+                                    <td data-label="ESTADO"><span class="badge-verified">
                                             <?php echo $c['estado'] ? 'Activo' : 'Inactivo'; ?>
                                         </span></td>
-                                    <td>
+                                    <td data-label="ACCIONES">
                                         <div class="u-actions">
                                             <a href="ver.php?id=<?php echo $c['id']; ?>" class="btn-act view"><i
                                                     class="fas fa-eye"></i></a>
