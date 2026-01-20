@@ -26,10 +26,11 @@ $secciones_raw = $stmtSec->fetchAll();
 $secciones = [];
 foreach ($secciones_raw as $s) {
     $secciones[] = [
-        'nombre' => $s['nombre'],
+        'id' => (int) $s['id'],
+        'nombre' => (string) $s['nombre'],
         'color' => $s['color'] ?? '#3b82f6',
-        'perchas' => $s['num_perchas'],
-        'productos' => $s['num_productos']
+        'perchas' => (int) $s['num_perchas'],
+        'productos' => (int) $s['num_productos']
     ];
 }
 ?>
@@ -128,28 +129,30 @@ foreach ($secciones_raw as $s) {
                         </div>
                         <div class="sections-grid">
                             <?php foreach ($secciones as $sec): ?>
-                                <div class="section-item-card">
-                                    <div class="section-head">
-                                        <div class="color-dot" style="background: <?php echo $sec['color']; ?>"></div>
-                                        <strong>
-                                            <?php echo $sec['nombre']; ?>
-                                        </strong>
-                                    </div>
-                                    <div class="section-stats">
-                                        <div class="stat-group">
-                                            <span>Perchas</span>
-                                            <b>
-                                                <?php echo $sec['perchas']; ?>
-                                            </b>
+                                    <div class="section-item-card"
+                                        onclick="verProductosSeccion(<?php echo (int) $sec['id']; ?>, <?php echo htmlspecialchars(json_encode($sec['nombre'])); ?>)"
+                                        style="cursor: pointer;">
+                                        <div class="section-head">
+                                            <div class="color-dot" style="background: <?php echo $sec['color']; ?>"></div>
+                                            <strong>
+                                                <?php echo $sec['nombre']; ?>
+                                            </strong>
                                         </div>
-                                        <div class="stat-group">
-                                            <span>Productos</span>
-                                            <b>
-                                                <?php echo $sec['productos']; ?>
-                                            </b>
+                                        <div class="section-stats">
+                                            <div class="stat-group">
+                                                <span>Perchas</span>
+                                                <b>
+                                                    <?php echo $sec['perchas']; ?>
+                                                </b>
+                                            </div>
+                                            <div class="stat-group">
+                                                <span>Productos</span>
+                                                <b>
+                                                    <?php echo $sec['productos']; ?>
+                                                </b>
+                                            </div>
                                         </div>
                                     </div>
-                                </div>
                             <?php endforeach; ?>
                         </div>
                     </div>
@@ -171,24 +174,24 @@ foreach ($secciones_raw as $s) {
                                 $stmt = $pdo->query("SELECT p.id, p.nombre, p.codigoPrincipal as codigo, p.stock as stock_actual FROM productos p LEFT JOIN productos_ubicacionproducto u ON p.id = u.producto_id WHERE u.id IS NULL AND p.anulado = 0 LIMIT 20");
                                 $unlocated = $stmt->fetchAll();
                                 if (empty($unlocated)): ?>
-                                    <div style="text-align: center; padding: 20px; color: #94a3b8;">
-                                        <i class="fas fa-check-circle"
-                                            style="font-size: 2rem; margin-bottom: 10px; display: block;"></i>
-                                        <p>Todos ubicados</p>
-                                    </div>
-                                <?php else: ?>
-                                    <?php foreach ($unlocated as $prod): ?>
-                                        <div class="unlocated-item">
-                                            <h4><?php echo htmlspecialchars($prod['nombre']); ?></h4>
-                                            <span class="sku"><?php echo htmlspecialchars($prod['codigo']); ?></span>
-                                            <span class="stock-pill">Stock:
-                                                <?php echo number_format($prod['stock_actual'], 2); ?></span>
-                                            <button class="btn-locate-mini" title="Ubicar"
-                                                onclick="openLocationSelector(<?php echo $prod['id']; ?>, '<?php echo addslashes($prod['nombre']); ?>')">
-                                                <i class="fas fa-map-marker-alt"></i>
-                                            </button>
+                                        <div style="text-align: center; padding: 20px; color: #94a3b8;">
+                                            <i class="fas fa-check-circle"
+                                                style="font-size: 2rem; margin-bottom: 10px; display: block;"></i>
+                                            <p>Todos ubicados</p>
                                         </div>
-                                    <?php endforeach; ?>
+                                <?php else: ?>
+                                        <?php foreach ($unlocated as $prod): ?>
+                                                <div class="unlocated-item">
+                                                    <h4><?php echo htmlspecialchars($prod['nombre']); ?></h4>
+                                                    <span class="sku"><?php echo htmlspecialchars($prod['codigo']); ?></span>
+                                                    <span class="stock-pill">Stock:
+                                                        <?php echo number_format($prod['stock_actual'], 2); ?></span>
+                                                    <button class="btn-locate-mini" title="Ubicar"
+                                                        onclick="openLocationSelector(<?php echo $prod['id']; ?>, '<?php echo addslashes($prod['nombre']); ?>')">
+                                                        <i class="fas fa-map-marker-alt"></i>
+                                                    </button>
+                                                </div>
+                                        <?php endforeach; ?>
                                 <?php endif; ?>
                             </div>
                         </div>
@@ -230,7 +233,7 @@ foreach ($secciones_raw as $s) {
                         style="width: 100%; padding: 10px; border-radius: 8px; border: 1px solid #e2e8f0;">
                         <option value="">-- Elige una sección --</option>
                         <?php
-                        $stmt = $pdo->query("SELECT id, nombre FROM secciones ORDER BY orden, nombre");
+                        $stmt = $pdo->query("SELECT id, nombre FROM productos_seccion ORDER BY orden, nombre");
                         while ($s = $stmt->fetch())
                             echo "<option value='{$s['id']}'>{$s['nombre']}</option>";
                         ?>
@@ -253,6 +256,22 @@ foreach ($secciones_raw as $s) {
     </div>
 
     <?php include $root . 'includes/scripts.php'; ?>
+
+    <!-- Modal: Productos en Sección -->
+    <div class="modal-overlay" id="modal-productos-seccion">
+        <div class="modal-content" style="max-width: 600px;">
+            <div class="modal-header">
+                <h2 id="modal-sec-title">Productos en Sección</h2>
+                <button class="btn-text close-modal-sec"><i class="fas fa-times"></i></button>
+            </div>
+            <div class="modal-body" id="modal-sec-body" style="max-height: 400px; overflow-y: auto; padding: 0;">
+                <!-- Se cargará vía AJAX -->
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary close-modal-sec">Cerrar</button>
+            </div>
+        </div>
+    </div>
     <script>
         let currentProductId = null;
         function openLocationSelector(id, name) {
@@ -278,9 +297,70 @@ foreach ($secciones_raw as $s) {
         };
         document.getElementById('btn-ir-mapa').onclick = function () {
             const perchaId = document.getElementById('sel-percha').value;
-            window.location.href = `percha_mapa.php?id=${perchaId}&product_id=${currentProductId}`;
+            if (perchaId && currentProductId) {
+                window.location.href = `percha_mapa.php?id=${perchaId}&product_id=${currentProductId}`;
+            } else {
+                alert("Por favor, selecciona una percha y asegúrate de que un producto esté seleccionado.");
+            }
         };
         document.querySelectorAll('.close-modal').forEach(btn => { btn.onclick = () => document.getElementById('modal-selector').style.display = 'none'; });
+
+        window.verProductosSeccion = function (id, nombre) {
+            const modal = document.getElementById('modal-productos-seccion');
+            const title = document.getElementById('modal-sec-title');
+            const body = document.getElementById('modal-sec-body');
+
+            if (!modal) return;
+            
+            title.innerText = `Productos en ${nombre}`;
+            body.innerHTML = '<div style="padding: 30px; text-align: center;"><i class="fas fa-spinner fa-spin fa-2x"></i><br>Cargando productos...</div>';
+            modal.style.display = 'flex';
+
+            fetch('api_get_productos_seccion.php?id=' + id)
+                .then(r => r.json())
+                .then(data => {
+                    if (data.length === 0) {
+                        body.innerHTML = '<div style="padding: 30px; text-align: center; color: #64748b;"><i class="fas fa-info-circle"></i><br>No hay productos ubicados en esta sección.</div>';
+                        return;
+                    }
+
+                    let html = '<table class="u-table" style="width: 100%; border-collapse: collapse;">';
+                    html += '<thead style="background: #f8fafc; position: sticky; top: 0;"><tr><th style="padding: 12px; text-align: left; font-size: 0.75rem; border-bottom: 1px solid #e2e8f0;">Producto</th><th style="padding: 12px; text-align: left; font-size: 0.75rem; border-bottom: 1px solid #e2e8f0;">Percha / Ubicación</th><th style="padding: 12px; text-align: right; font-size: 0.75rem; border-bottom: 1px solid #e2e8f0;">Stock</th></tr></thead><tbody>';
+                    
+                    data.forEach(p => {
+                        const stockVal = parseFloat(p.stock || 0).toFixed(2);
+                        html += `<tr style="border-bottom: 1px solid #f1f5f9;">
+                            <td style="padding: 12px;">
+                                <div style="font-weight: 600; font-size: 0.85rem;">${p.nombre}</div>
+                                <div style="font-size: 0.7rem; color: #64748b;">${p.codigo || 'S/C'}</div>
+                            </td>
+                            <td style="padding: 12px; font-size: 0.8rem;">
+                                <div><i class="fas fa-th"></i> ${p.percha_nombre}</div>
+                                <div style="font-size: 0.7rem; color: #64748b;">Fila: ${p.fila}, Col: ${p.columna}</div>
+                            </td>
+                            <td style="padding: 12px; text-align: right; font-weight: 600;">${stockVal}</td>
+                        </tr>`;
+                    });
+                    
+                    html += '</tbody></table>';
+                    body.innerHTML = html;
+                })
+                .catch(err => {
+                    console.error("Error al cargar productos:", err);
+                    body.innerHTML = `<div style="padding: 30px; text-align: center; color: #ef4444;"><i class="fas fa-exclamation-circle"></i><br>Error al cargar los datos.</div>`;
+                });
+        };
+
+        document.querySelectorAll('.close-modal-sec').forEach(btn => {
+            btn.onclick = () => document.getElementById('modal-productos-seccion').style.display = 'none';
+        });
+
+        window.onclick = function (event) {
+            const modal1 = document.getElementById('modal-selector');
+            const modal2 = document.getElementById('modal-productos-seccion');
+            if (event.target == modal1) modal1.style.display = 'none';
+            if (event.target == modal2) modal2.style.display = 'none';
+        }
     </script>
 </body>
 
