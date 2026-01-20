@@ -370,7 +370,19 @@ $cierres = $stmt->fetchAll();
                                     </td>
                                 </tr>
                             <?php else: ?>
-                                <?php foreach ($cierres as $c): ?>
+                                <?php foreach ($cierres as $c): 
+                                    $ref = new DateTime($c['fecha_referencia']);
+                                    if ($periodo == 'mensual') {
+                                        $f_inicio = $ref->format('Y-m-01');
+                                        $f_fin = $ref->format('Y-m-t');
+                                    } elseif ($periodo == 'anual') {
+                                        $f_inicio = $ref->format('Y-01-01');
+                                        $f_fin = $ref->format('Y-12-31');
+                                    } else {
+                                        $f_inicio = $ref->format('Y-m-d');
+                                        $f_fin = $ref->format('Y-m-d');
+                                    }
+                                ?>
                                     <tr>
                                         <td style="font-weight: 600; color: #1e293b;">
                                             <?php echo $c['etiqueta']; ?>
@@ -393,9 +405,9 @@ $cierres = $stmt->fetchAll();
                                             <?php echo number_format($c['total'], 2); ?>
                                         </td>
                                         <td style="text-align: center;">
-                                            <button class="btn-action-report" title="Ver detalle de este periodo">
+                                            <a href="../ventas/index.php?fecha_inicio=<?php echo $f_inicio; ?>&fecha_fin=<?php echo $f_fin; ?>" class="btn-action-report" style="text-decoration: none; display: inline-block;" title="Ver detalle de este periodo">
                                                 <i class="fas fa-search-plus"></i> Detalle
-                                            </button>
+                                            </a>
                                         </td>
                                     </tr>
                                 <?php endforeach; ?>
