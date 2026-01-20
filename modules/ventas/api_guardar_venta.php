@@ -25,8 +25,18 @@ try {
         (idCliente, idUsuario, numeroFactura, fechaEmision, subtotal, descuento, iva, total, estado, creadoPor, creadoDate) 
         VALUES (?, ?, ?, NOW(), ?, ?, ?, ?, 'PAGADA', ?, NOW())");
 
-    // Generar un número de factura aleatorio para el ejemplo
-    $numFactura = "FAC-" . date('Ymd') . "-" . strtoupper(substr(uniqid(), -6));
+    // Obtener la secuencia correcta (Ecuador: Establecimiento-PuntoEmision-Secuencial)
+    // Buscamos el último número que siga el formato 001-001-
+    $stmtSeq = $pdo->query("SELECT numeroFactura FROM facturas_venta WHERE numeroFactura LIKE '001-001-%' ORDER BY id DESC LIMIT 1");
+    $lastFactura = $stmtSeq->fetchColumn();
+
+    $secuencial = 1;
+    if ($lastFactura) {
+        $partes = explode('-', $lastFactura);
+        $ultimoValor = end($partes);
+        $secuencial = intval($ultimoValor) + 1;
+    }
+    $numFactura = "001-001-" . str_pad($secuencial, 9, '0', STR_PAD_LEFT);
 
     $stmt->execute([
         $data['cliente_id'] ?? 275, // Consumidor final por defecto
