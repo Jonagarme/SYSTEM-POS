@@ -889,10 +889,14 @@ $date_now = date('d/m/Y H:i');
                         <button class="btn-text close-modal"><i class="fas fa-times"></i></button>
                     </div>
                     <div class="modal-body">
-                        <div class="price-type-selector" style="margin-bottom: 24px;">
-                            <div class="price-type-btn active" style="padding: 12px;"><i class="fas fa-user"></i>
-                                Persona Natural</div>
-                            <div class="price-type-btn" style="padding: 12px;"><i class="fas fa-building"></i> Empresa
+                        <div class="price-type-selector client-type-selector" style="margin-bottom: 24px;">
+                            <div class="price-type-btn active" id="btn-cli-natural" style="padding: 12px;"
+                                onclick="setClientType('NATURAL')">
+                                <i class="fas fa-user"></i> Persona Natural
+                            </div>
+                            <div class="price-type-btn" id="btn-cli-empresa" style="padding: 12px;"
+                                onclick="setClientType('JURIDICA')">
+                                <i class="fas fa-building"></i> Empresa
                             </div>
                         </div>
 
@@ -901,17 +905,17 @@ $date_now = date('d/m/Y H:i');
                             <div>
                                 <h3 style="font-size: 0.9rem; margin-bottom: 15px; color: #0061f2;"><i
                                         class="fas fa-info-circle"></i> Información Personal</h3>
-                                <div class="form-group">
-                                    <label>Nombres *</label>
-                                    <input type="text" class="form-control" placeholder="">
+                                <div class="form-group" id="group-nombres">
+                                    <label id="lbl-nombres">Nombres *</label>
+                                    <input type="text" id="cli-nombres" class="form-control" placeholder="">
                                 </div>
-                                <div class="form-group">
+                                <div class="form-group" id="group-apellidos">
                                     <label>Apellidos *</label>
-                                    <input type="text" class="form-control" placeholder="">
+                                    <input type="text" id="cli-apellidos" class="form-control" placeholder="">
                                 </div>
                                 <div class="form-group">
-                                    <label>Número de Identidad / RUC *</label>
-                                    <input type="text" class="form-control" placeholder="">
+                                    <label id="lbl-identidad">Número de Identidad / RUC *</label>
+                                    <input type="text" id="cli-identidad" class="form-control" placeholder="">
                                 </div>
                             </div>
                             <!-- Contact Info -->
@@ -920,15 +924,15 @@ $date_now = date('d/m/Y H:i');
                                         class="fas fa-phone-alt"></i> Información de Contacto</h3>
                                 <div class="form-group">
                                     <label>Teléfono *</label>
-                                    <input type="text" class="form-control" placeholder="">
+                                    <input type="text" id="cli-telefono" class="form-control" placeholder="">
                                 </div>
                                 <div class="form-group">
                                     <label>Email</label>
-                                    <input type="email" class="form-control" placeholder="">
+                                    <input type="email" id="cli-email" class="form-control" placeholder="">
                                 </div>
                                 <div class="form-group">
                                     <label>Dirección</label>
-                                    <textarea class="form-control" rows="2"></textarea>
+                                    <textarea id="cli-direccion" class="form-control" rows="2"></textarea>
                                 </div>
                             </div>
                         </div>
@@ -943,11 +947,11 @@ $date_now = date('d/m/Y H:i');
                                 <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
                                     <div class="form-group">
                                         <label>Límite Crédito</label>
-                                        <input type="number" class="form-control" value="0.00">
+                                        <input type="number" id="cli-limite" class="form-control" value="0.00">
                                     </div>
                                     <div class="form-group">
                                         <label>Días Crédito</label>
-                                        <input type="number" class="form-control" value="0">
+                                        <input type="number" id="cli-dias" class="form-control" value="0">
                                     </div>
                                 </div>
                             </div>
@@ -957,10 +961,10 @@ $date_now = date('d/m/Y H:i');
                                         class="fas fa-cog"></i> Configuraciones</h3>
                                 <div style="display: flex; flex-direction: column; gap: 10px; margin-top: 10px;">
                                     <label style="display: flex; align-items: center; gap: 10px; cursor: pointer;">
-                                        <input type="checkbox" checked> <span>Cliente Activo</span>
+                                        <input type="checkbox" id="cli-activo" checked> <span>Cliente Activo</span>
                                     </label>
                                     <label style="display: flex; align-items: center; gap: 10px; cursor: pointer;">
-                                        <input type="checkbox"> <span>Exento de Impuestos</span>
+                                        <input type="checkbox" id="cli-exento"> <span>Exento de Impuestos</span>
                                     </label>
                                 </div>
                             </div>
@@ -968,7 +972,8 @@ $date_now = date('d/m/Y H:i');
                     </div>
                     <div class="modal-footer">
                         <button class="btn btn-secondary close-modal">Cancelar</button>
-                        <button class="btn btn-primary"><i class="fas fa-save"></i> Guardar Cliente</button>
+                        <button class="btn btn-primary" id="btn-save-cliente" onclick="saveNewClient()"><i
+                                class="fas fa-save"></i> Guardar Cliente</button>
                     </div>
                 </div>
             </div>
@@ -1607,6 +1612,93 @@ $date_now = date('d/m/Y H:i');
                 .catch(err => {
                     console.error("Error:", err);
                     alert("Error de conexión al guardar.");
+                });
+        }
+
+        let activeClientType = 'NATURAL';
+
+        function setClientType(type) {
+            activeClientType = type;
+            const btnNatural = document.getElementById('btn-cli-natural');
+            const btnEmpresa = document.getElementById('btn-cli-empresa');
+            const lblNombres = document.getElementById('lbl-nombres');
+            const groupApellidos = document.getElementById('group-apellidos');
+            const lblIdentidad = document.getElementById('lbl-identidad');
+
+            if (type === 'NATURAL') {
+                btnNatural.classList.add('active');
+                btnEmpresa.classList.remove('active');
+                lblNombres.innerText = 'Nombres *';
+                groupApellidos.style.display = 'block';
+                lblIdentidad.innerText = 'Número de Identidad *';
+            } else {
+                btnNatural.classList.remove('active');
+                btnEmpresa.classList.add('active');
+                lblNombres.innerText = 'Razón Social *';
+                groupApellidos.style.display = 'none';
+                lblIdentidad.innerText = 'RUC *';
+            }
+        }
+
+        function saveNewClient() {
+            const nombres = document.getElementById('cli-nombres').value;
+            const apellidos = document.getElementById('cli-apellidos').value;
+            const identidad = document.getElementById('cli-identidad').value;
+            const telefono = document.getElementById('cli-telefono').value;
+            const email = document.getElementById('cli-email').value;
+            const direccion = document.getElementById('cli-direccion').value;
+
+            if (!nombres || !identidad) {
+                showToast("Por favor complete los campos obligatorios (*)", "error");
+                return;
+            }
+
+            const btnSave = document.getElementById('btn-save-cliente');
+            btnSave.disabled = true;
+            btnSave.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Guardando...';
+
+            const clientData = {
+                nombres: nombres,
+                apellidos: activeClientType === 'NATURAL' ? apellidos : '',
+                cedula_ruc: identidad,
+                celular: telefono,
+                email: email,
+                direccion: direccion,
+                tipo_cliente: activeClientType === 'NATURAL' ? 'Natural' : 'Juridica'
+            };
+
+            fetch('api_guardar_cliente.php', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(clientData)
+            })
+                .then(res => res.json())
+                .then(data => {
+                    if (data.success) {
+                        showToast("Cliente guardado exitosamente");
+                        // Seleccionar el cliente recién creado
+                        selectClient({
+                            id: data.id,
+                            nombres: clientData.nombres,
+                            apellidos: clientData.apellidos,
+                            cedula_ruc: clientData.cedula_ruc,
+                            direccion: clientData.direccion
+                        });
+                        // Cerrar modal y limpiar campos
+                        document.getElementById('modal-cliente').style.display = 'none';
+                        document.querySelectorAll('#modal-cliente input').forEach(i => i.value = '');
+                        document.querySelector('#modal-cliente textarea').value = '';
+                    } else {
+                        showToast("Error: " + data.error, "error");
+                    }
+                })
+                .catch(err => {
+                    console.error("Error:", err);
+                    showToast("Error de conexión al guardar el cliente", "error");
+                })
+                .finally(() => {
+                    btnSave.disabled = false;
+                    btnSave.innerHTML = '<i class="fas fa-save"></i> Guardar Cliente';
                 });
         }
 
