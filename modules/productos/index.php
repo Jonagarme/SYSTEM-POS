@@ -35,7 +35,7 @@ try {
     // Stats queries
     $total_productos = $pdo->query("SELECT COUNT(*) FROM productos WHERE anulado = 0")->fetchColumn();
     $en_stock = $pdo->query("SELECT COUNT(*) FROM productos WHERE stock > 0 AND anulado = 0")->fetchColumn();
-    $stock_bajo = $pdo->query("SELECT COUNT(*) FROM productos WHERE stock <= stockMinimo AND stock > 0 AND anulado = 0")->fetchColumn();
+    $stock_bajo = $pdo->query("SELECT COUNT(*) FROM productos WHERE stock <= stockMinimo AND anulado = 0")->fetchColumn();
     $total_categorias = $pdo->query("SELECT COUNT(*) FROM categorias")->fetchColumn();
 
     // Fetch filters data
