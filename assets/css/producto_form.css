@@ -126,13 +126,31 @@
     color: #fca5a5;
 }
 
+.price-stat .val.success {
+    color: #86efac;
+}
+
 .stock-badge {
-    background: #fee2e2;
-    color: #ef4444;
     padding: 4px 20px;
     border-radius: 8px;
     display: inline-block;
     font-weight: 700;
+    font-size: 0.8rem;
+}
+
+.stock-badge.danger {
+    background: #fee2e2;
+    color: #ef4444;
+}
+
+.stock-badge.warning {
+    background: #fef3c7;
+    color: #d97706;
+}
+
+.stock-badge.success {
+    background: #dcfce7;
+    color: #16a34a;
 }
 
 .input-currency {

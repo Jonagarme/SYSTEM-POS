@@ -170,13 +170,17 @@
     color: white;
 }
 
+.card-status-badge.in-stock {
+    background: #10b981;
+}
+
 .card-status-badge.no-stock {
     background: #dc3545;
 }
 
 .card-status-badge.low-stock {
-    background: #ffc107;
-    color: #000;
+    background: #f59e0b;
+    color: #fff;
 }
 
 .card-img {

@@ -281,7 +281,8 @@ $current_page = 'productos';
                                         class="btn-action blue" title="Ver Kardex"><i class="fas fa-history"></i></a>
                                     <button class="btn-action green" title="Vender"><i
                                             class="fas fa-shopping-cart"></i></button>
-                                    <button class="btn-action cyan" title="Editar"><i class="fas fa-edit"></i></button>
+                                    <a href="nuevo.php?id=<?php echo $p['id']; ?>" class="btn-action cyan" title="Editar"><i
+                                            class="fas fa-edit"></i></a>
                                 </div>
                             </div>
                         <?php endforeach; ?>
