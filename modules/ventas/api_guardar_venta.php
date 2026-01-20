@@ -26,8 +26,8 @@ try {
         VALUES (?, ?, ?, NOW(), ?, ?, ?, ?, 'PAGADA', ?, NOW())");
 
     // Obtener la secuencia correcta (Ecuador: Establecimiento-PuntoEmision-Secuencial)
-    // Buscamos el último número que siga el formato 001-001-
-    $stmtSeq = $pdo->query("SELECT numeroFactura FROM facturas_venta WHERE numeroFactura LIKE '001-001-%' ORDER BY id DESC LIMIT 1");
+    // Buscamos el último número REAL de factura electrónica para incrementar
+    $stmtSeq = $pdo->query("SELECT numeroFactura FROM facturas_venta WHERE numeroFactura LIKE '001-001-%' ORDER BY numeroFactura DESC LIMIT 1");
     $lastFactura = $stmtSeq->fetchColumn();
 
     $secuencial = 1;
@@ -147,7 +147,37 @@ try {
         $venta['certificado_p12_path'] = $certPath;
         $venta['certificado_password'] = $certPass;
 
-        $external_res = LogifactAPI::sendInvoice($venta, $token);
+        // Sobrescribir fecha con la del servidor (Ecuador) para evitar problemas de sincronización
+        date_default_timezone_set('America/Guayaquil');
+        $venta['fechaEmision'] = date('d/m/Y');
+
+        // IMPORTANTE: Envolver en 'tipo' y 'data' para Logifact
+        $payload = [
+            "tipo" => "factura",
+            "data" => $venta
+        ];
+
+        $external_res = LogifactAPI::sendInvoice($payload, $token);
+
+        // --- ACTUALIZAR ESTADO EN BASE DE DATOS LOCAL ---
+        if ($external_res && isset($external_res['estado'])) {
+            $sriEstado = $external_res['estado'];
+            $authNumber = $external_res['numeroAutorizacion'] ?? $external_res['autorizacion'] ?? $external_res['claveAcceso'] ?? null;
+
+            if (is_array($authNumber))
+                $authNumber = json_encode($authNumber);
+
+            // Si es exitoso, marcamos como AUTORIZADA
+            if ($sriEstado === 'AUTORIZADO') {
+                $pdo->prepare("UPDATE facturas_venta SET estadoFactura = 'AUTORIZADA', numeroAutorizacion = ? WHERE id = ?")
+                    ->execute([$authNumber, $idVenta]);
+            } else {
+                // Si fue devuelta o rechazada, marcamos el error
+                $dbEstado = ($sriEstado === 'DEVUELTA' || $sriEstado === 'NO AUTORIZADO') ? 'RECHAZADO' : $sriEstado;
+                $pdo->prepare("UPDATE facturas_venta SET estadoFactura = ?, numeroAutorizacion = NULL WHERE id = ?")
+                    ->execute([$dbEstado, $idVenta]);
+            }
+        }
     }
 
     echo json_encode([

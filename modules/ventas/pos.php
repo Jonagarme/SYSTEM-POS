@@ -814,17 +814,19 @@ $date_now = date('d/m/Y H:i');
                                     Telf:
                                     <?php echo $empresa['telefono']; ?><br>
                                     Autorización SRI: <br>
-                                    <span style="font-size: 8px;">0000000000000000000000000000000000000000</span><br>
+                                    <span id="t-autorizacion"
+                                        style="font-size: 8px;">0000000000000000000000000000000000000000</span><br>
                                     Clave de Acceso: <br>
-                                    <span
-                                        style="font-size: 8px;">1201202601<?php echo $empresa['ruc']; ?>2001001000000001
+                                    <span id="t-clave" style="font-size: 8px;">
+                                        1201202601<?php echo $empresa['ruc']; ?>2001001000000001
                                     </span>
                                 </div>
                             </div>
 
                             <div class="ticket-divider"></div>
                             <div style="font-size: 11px; font-weight: bold; text-align: center;">FACTURA No.
-                                001-001-000000001</div>
+                                <span id="t-numero">001-001-000000001</span>
+                            </div>
                             <div class="ticket-divider"></div>
 
                             <div class="ticket-info" style="text-transform: none;">
@@ -1570,7 +1572,16 @@ $date_now = date('d/m/Y H:i');
                         document.getElementById('t-cliente').innerText = saleData.data.razonSocialComprador;
                         document.getElementById('t-ruc').innerText = saleData.data.identificacionComprador;
                         document.getElementById('t-direccion').innerText = sale.client.direccion || 'S/N';
-                        document.getElementById('t-total').innerText = `$ ${saleData.data.importeTotal.toFixed(2)}`;
+                        document.getElementById('t-total').innerText = `$ ${saleData.data.importeTotal}`;
+
+                        // Set dynamic invoice number and SRI data
+                        document.getElementById('t-numero').innerText = res.numero || '001-001-000000000';
+                        if (res.external) {
+                            const ext = res.external;
+                            const auth = ext.numeroAutorizacion || ext.autorizacion || (ext.estado === 'AUTORIZADO' ? ext.claveAcceso : 'PENDIENTE');
+                            document.getElementById('t-autorizacion').innerText = auth;
+                            document.getElementById('t-clave').innerText = ext.claveAcceso || 'Generando...';
+                        }
 
                         const tItems = document.getElementById('t-items');
                         tItems.innerHTML = '';

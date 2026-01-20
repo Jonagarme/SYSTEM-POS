@@ -3,6 +3,7 @@ header('Content-Type: application/json');
 require_once '../../includes/db.php';
 require_once '../../includes/logifact_api.php';
 session_start();
+date_default_timezone_set('America/Guayaquil');
 
 $input = json_decode(file_get_contents('php://input'), true);
 $id = $input['id'] ?? 0;
