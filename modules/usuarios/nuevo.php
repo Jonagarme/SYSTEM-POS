@@ -86,6 +86,29 @@ $current_page = 'usuarios_nuevo';
             width: 18px;
             height: 18px;
         }
+
+        /* Responsive Improvements */
+        @media (max-width: 768px) {
+            .nu-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .nu-footer {
+                flex-direction: column-reverse;
+                gap: 15px;
+            }
+
+            .nu-footer a,
+            .nu-footer button {
+                width: 100%;
+                justify-content: center;
+                text-align: center;
+            }
+
+            .nu-card {
+                padding: 20px;
+            }
+        }
     </style>
 </head>
 

@@ -228,6 +228,53 @@ $user = $_GET['user'] ?? 'admin1';
             align-items: center;
             gap: 10px;
         }
+
+        /* Responsive Improvements */
+        @media (max-width: 992px) {
+            .p-grid-top {
+                grid-template-columns: 1fr;
+            }
+
+            .card-profile-main {
+                flex-direction: column;
+                align-items: center;
+                text-align: center;
+                gap: 20px;
+            }
+
+            .p-info-grid {
+                justify-items: center;
+            }
+        }
+
+        @media (max-width: 768px) {
+            .p-header {
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 15px;
+            }
+
+            .p-header div {
+                width: 100%;
+            }
+
+            .p-header a {
+                flex: 1;
+                justify-content: center;
+            }
+
+            .p-grid-bottom {
+                grid-template-columns: 1fr;
+            }
+
+            .p-info-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .content-wrapper {
+                padding: 15px;
+            }
+        }
     </style>
 </head>
 

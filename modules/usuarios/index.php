@@ -176,6 +176,83 @@ $usuarios = $stmt->fetchAll();
             filter: brightness(0.9);
             transform: scale(1.05);
         }
+
+        /* Responsive Improvements */
+        @media (max-width: 992px) {
+            .u-filters {
+                grid-template-columns: 1fr 1fr;
+            }
+        }
+
+        @media (max-width: 768px) {
+            .u-header {
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 15px;
+            }
+
+            .u-header a {
+                width: 100%;
+                text-align: center;
+                justify-content: center;
+            }
+
+            .u-filters {
+                grid-template-columns: 1fr;
+            }
+
+            /* Card-based table on mobile */
+            .u-table thead {
+                display: none;
+            }
+
+            .u-table,
+            .u-table tbody,
+            .u-table tr,
+            .u-table td {
+                display: block;
+                width: 100%;
+            }
+
+            .u-table tr {
+                margin-bottom: 15px;
+                border: 1px solid #e2e8f0;
+                border-radius: 12px;
+                padding: 10px;
+                background: #f8fafc;
+            }
+
+            .u-table td {
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                text-align: right;
+                padding: 10px 5px;
+                border-bottom: 1px solid #edf2f7;
+            }
+
+            .u-table td:last-child {
+                border-bottom: none;
+            }
+
+            .u-table td::before {
+                content: attr(data-label);
+                font-weight: 700;
+                font-size: 0.7rem;
+                color: #64748b;
+                text-transform: uppercase;
+                text-align: left;
+                margin-right: 10px;
+            }
+
+            .user-info-cell {
+                justify-content: flex-end;
+            }
+
+            .u-actions {
+                justify-content: flex-end;
+            }
+        }
     </style>
 </head>
 
@@ -220,7 +297,7 @@ $usuarios = $stmt->fetchAll();
                     <button class="btn btn-primary" style="height: 42px;"><i class="fas fa-search"></i> Buscar</button>
                 </div>
 
-                <div class="u-table-container">
+                <div class="u-table-container" style="background: transparent; border: none; box-shadow: none;">
                     <table class="u-table">
                         <thead>
                             <tr>
@@ -236,9 +313,10 @@ $usuarios = $stmt->fetchAll();
                         <tbody>
                             <?php foreach ($usuarios as $u): ?>
                                 <tr>
-                                    <td>
+                                    <td data-label="Usuario">
                                         <div class="user-info-cell">
-                                            <div class="user-avatar" style="background: <?php echo $u['origen'] == 'Legacy' ? '#94a3b8' : ''; ?>;">
+                                            <div class="user-avatar"
+                                                style="background: <?php echo $u['origen'] == 'Legacy' ? '#94a3b8' : ''; ?>;">
                                                 <?php echo strtoupper(substr($u['nombreUsuario'], 0, 1)); ?>
                                             </div>
                                             <strong>
@@ -246,30 +324,31 @@ $usuarios = $stmt->fetchAll();
                                             </strong>
                                         </div>
                                     </td>
-                                    <td>
+                                    <td data-label="Nombre Completo">
                                         <?php echo htmlspecialchars($u['nombreCompleto'] ?: 'Sin nombre'); ?>
                                     </td>
-                                    <td>
+                                    <td data-label="Email">
                                         <?php echo htmlspecialchars($u['email']); ?>
                                     </td>
-                                    <td>
-                                        <span class="badge-role" style="background: <?php echo $u['origen'] == 'Legacy' ? '#64748b' : ''; ?>;">
+                                    <td data-label="Rol">
+                                        <span class="badge-role"
+                                            style="background: <?php echo $u['origen'] == 'Legacy' ? '#64748b' : ''; ?>;">
                                             <?php echo $u['origen'] == 'Legacy' ? 'Legacy (Django)' : 'Usuario'; ?>
                                         </span>
                                     </td>
-                                    <td><span class="badge-status-u"
+                                    <td data-label="Estado"><span class="badge-status-u"
                                             style="background: <?php echo $u['activo'] ? '#059669' : '#94a3b8'; ?>;">
                                             <?php echo $u['activo'] ? 'Activo' : 'Inactivo'; ?>
                                         </span></td>
-                                    <td style="font-size: 0.75rem; color: #64748b;">
+                                    <td data-label="Creado" style="font-size: 0.75rem; color: #64748b;">
                                         <?php echo $u['creadoDate'] ? date('d/m/Y H:i', strtotime($u['creadoDate'])) : 'N/A'; ?>
                                     </td>
-                                    <td>
+                                    <td data-label="Acciones">
                                         <div class="u-actions">
-                                            <a href="perfil.php?id=<?php echo $u['id']; ?>&orig=<?php echo $u['origen']; ?>" class="btn-u-act view"><i
-                                                    class="fas fa-eye"></i></a>
-                                            <a href="editar.php?id=<?php echo $u['id']; ?>&orig=<?php echo $u['origen']; ?>" class="btn-u-act edit"><i
-                                                    class="fas fa-edit"></i></a>
+                                            <a href="perfil.php?id=<?php echo $u['id']; ?>&orig=<?php echo $u['origen']; ?>"
+                                                class="btn-u-act view"><i class="fas fa-eye"></i></a>
+                                            <a href="editar.php?id=<?php echo $u['id']; ?>&orig=<?php echo $u['origen']; ?>"
+                                                class="btn-u-act edit"><i class="fas fa-edit"></i></a>
                                             <button class="btn-u-act pause"><i class="fas fa-pause"></i></button>
                                             <button class="btn-u-act delete"><i class="fas fa-ban"></i></button>
                                         </div>
@@ -284,4 +363,6 @@ $usuarios = $stmt->fetchAll();
     </div>
 
     <?php include $root . 'includes/scripts.php'; ?>
-</body></html>
+</body>
+
+</html>

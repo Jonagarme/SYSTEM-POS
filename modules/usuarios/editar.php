@@ -108,6 +108,34 @@ $user = $_GET['user'] ?? 'admin1';
             background: #f8fafc;
             border-top: 1px solid #f1f5f9;
         }
+
+        /* Responsive Improvements */
+        @media (max-width: 768px) {
+            .eu-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .eu-footer {
+                flex-direction: column-reverse;
+                gap: 15px;
+                padding: 20px;
+            }
+
+            .eu-footer a,
+            .eu-footer button {
+                width: 100%;
+                justify-content: center;
+                text-align: center;
+            }
+
+            .section-body {
+                padding: 20px;
+            }
+
+            .eu-header {
+                padding: 0 10px;
+            }
+        }
     </style>
 </head>
 

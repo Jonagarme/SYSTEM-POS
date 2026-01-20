@@ -138,6 +138,81 @@ $roles = [
         .btn-edit-role:hover {
             background: #f8fafc;
         }
+
+        /* Responsive Improvements */
+        @media (max-width: 768px) {
+            .roles-header {
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 15px;
+            }
+
+            .roles-header a {
+                width: 100%;
+                justify-content: center;
+                text-align: center;
+            }
+
+            .roles-search-container {
+                flex-direction: column;
+            }
+
+            .roles-search-container input {
+                width: 100%;
+            }
+
+            .btn-search-roles {
+                width: 100%;
+            }
+
+            /* Card-based table on mobile */
+            .roles-table thead {
+                display: none;
+            }
+
+            .roles-table,
+            .roles-table tbody,
+            .roles-table tr,
+            .roles-table td {
+                display: block;
+                width: 100%;
+            }
+
+            .roles-table tr {
+                margin-bottom: 15px;
+                border: 1px solid #e2e8f0;
+                border-radius: 12px;
+                padding: 10px;
+                background: #f8fafc;
+            }
+
+            .roles-table td {
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                text-align: right;
+                padding: 10px 5px;
+                border-bottom: 1px solid #edf2f7;
+            }
+
+            .roles-table td:last-child {
+                border-bottom: none;
+            }
+
+            .roles-table td::before {
+                content: attr(data-label);
+                font-weight: 700;
+                font-size: 0.7rem;
+                color: #64748b;
+                text-transform: uppercase;
+                text-align: left;
+                margin-right: 10px;
+            }
+
+            .content-wrapper {
+                padding: 15px;
+            }
+        }
     </style>
 </head>
 
@@ -164,7 +239,7 @@ $roles = [
                     <button class="btn-search-roles"><i class="fas fa-search"></i></button>
                 </div>
 
-                <div class="roles-table-container">
+                <div class="roles-table-container" style="background: transparent; border: none; box-shadow: none;">
                     <table class="roles-table">
                         <thead>
                             <tr>
@@ -179,23 +254,23 @@ $roles = [
                         <tbody>
                             <?php foreach ($roles as $r): ?>
                                 <tr>
-                                    <td style="font-weight: 700;">
+                                    <td data-label="Nombre" style="font-weight: 700;">
                                         <i class="fas fa-user-shield" style="color: #2563eb; margin-right: 10px;"></i>
                                         <?php echo $r['nombre']; ?>
                                     </td>
-                                    <td style="color: #64748b;">
+                                    <td data-label="Descripción" style="color: #64748b;">
                                         <?php echo $r['desc']; ?>
                                     </td>
-                                    <td style="text-align: center;"><span class="badge-users">
+                                    <td data-label="Usuarios" style="text-align: center;"><span class="badge-users">
                                             <?php echo $r['users']; ?> usuarios
                                         </span></td>
-                                    <td style="text-align: center;"><span class="badge-perms">
+                                    <td data-label="Permisos" style="text-align: center;"><span class="badge-perms">
                                             <?php echo $r['perms']; ?> permisos
                                         </span></td>
-                                    <td style="color: #64748b; font-size: 0.8rem;">
+                                    <td data-label="Creado" style="color: #64748b; font-size: 0.8rem;">
                                         <?php echo $r['created']; ?>
                                     </td>
-                                    <td>
+                                    <td data-label="Acciones">
                                         <a href="editar_rol.php?nombre=<?php echo $r['nombre']; ?>" class="btn-edit-role">
                                             <i class="fas fa-edit"></i> Editar
                                         </a>
