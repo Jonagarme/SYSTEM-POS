@@ -50,6 +50,8 @@ $facturas_count = count($facturas);
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="stylesheet" href="../../assets/css/style.css">
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <!-- Sistema de Sincronización Automática SRI -->
+    <script src="../../assets/js/sri-auto-sync.js"></script>
     <style>
         .ef-header-banner {
             background: #6366f1;
@@ -772,12 +774,61 @@ $facturas_count = count($facturas);
                 const res = await response.json();
 
                 if (res.success) {
+                    const estado = String(res.estado || res.external?.estado || '').toUpperCase();
+                    const clave = res.claveAcceso || res.external?.claveAcceso || res.external?.autorizacion || res.external?.numeroAutorizacion;
+
+                    if (estado === 'AUTORIZADO' || estado === 'AUTORIZADA') {
+                        Swal.fire({
+                            title: '¡Autorizada!',
+                            text: 'La factura fue autorizada por el SRI.',
+                            icon: 'success',
+                            footer: 'Autorización: ' + (res.numeroAutorizacion || res.external?.numeroAutorizacion || res.external?.autorizacion || clave || 'Recibida')
+                        }).then(() => window.location.reload());
+                        return;
+                    }
+
+                    // PROCESANDO: iniciar polling y refrescar cuando autorice
                     Swal.fire({
-                        title: '¡Éxito!',
-                        text: 'La factura ha sido enviada y procesada correctamente.',
-                        icon: 'success',
-                        footer: 'Autorización: ' + (res.external?.autorizacion || res.external?.claveAcceso || 'Recibida')
-                    }).then(() => window.location.reload());
+                        title: 'En proceso',
+                        html: 'El SRI está procesando la autorización.<br><small>Actualizando automáticamente...</small>',
+                        icon: 'info',
+                        allowOutsideClick: false,
+                        didOpen: () => { Swal.showLoading(); }
+                    });
+
+                    const maxAttempts = 30; // ~60s
+                    let attempts = 0;
+                    const poll = async () => {
+                        attempts++;
+                        try {
+                            const r = await fetch(`api_consultar_estado.php?id=${id}`);
+                            const st = await r.json();
+                            if (st.success && String(st.estado).toUpperCase() === 'AUTORIZADA') {
+                                Swal.fire({
+                                    title: '¡Autorizada!',
+                                    text: 'La factura fue autorizada por el SRI.',
+                                    icon: 'success',
+                                    footer: 'Autorización: ' + (st.numeroAutorizacion || clave || 'Recibida')
+                                }).then(() => window.location.reload());
+                                return;
+                            }
+                        } catch (e) {
+                            // seguir intentando
+                        }
+
+                        if (attempts >= maxAttempts) {
+                            Swal.fire({
+                                title: 'En proceso',
+                                text: 'Sigue en procesamiento. Puedes intentar sincronizar o esperar unos segundos.',
+                                icon: 'info'
+                            }).then(() => window.location.reload());
+                            return;
+                        }
+
+                        setTimeout(poll, 2000);
+                    };
+
+                    setTimeout(poll, 1500);
                 } else {
                     Swal.fire({
                         title: 'Hubo un problema',
@@ -794,7 +845,79 @@ $facturas_count = count($facturas);
         closes.forEach(btn => btn.onclick = () => modal.style.display = 'none');
 
         // Lógica de Sincronización Masiva SRI
-        document.getElementById('btn-sync-sri')?.addEventListener('click', function () {
+        document.getElementById('btn-sync-sri')?.addEventListener('click', async function () {
+            // Si existe el sistema automático, usar ese
+            if (window.sriAutoSync) {
+                try {
+                    Swal.fire({
+                        title: 'Sincronizando con SRI',
+                        text: 'Consultando estados de facturas pendientes...',
+                        allowOutsideClick: false,
+                        didOpen: () => { Swal.showLoading(); }
+                    });
+
+                    const data = await window.sriAutoSync.performSync(false);
+                    
+                    if (data && data.success) {
+                        const results = data.results;
+                        let msg = `Se revisaron ${results.checked} documentos.\n`;
+
+                        if (results.updated > 0) {
+                            msg += `✅ ${results.updated} facturas han sido AUTORIZADAS ahora.`;
+                        } else {
+                            msg += `ℹ️ No hay nuevas actualizaciones del SRI todavía.`;
+                            if (results.last_error) {
+                                msg += `\n\n⚠️ Nota: ${results.last_error}`;
+                            }
+
+                            msg += `\n\nDetalles recibidos: ${Array.isArray(results.details) ? results.details.length : 0}`;
+
+                            // Mostrar cuáles quedaron pendientes
+                            if (Array.isArray(results.details) && results.details.length) {
+                                const pendientes = results.details
+                                    .filter(d => d && d.estado && d.estado !== 'AUTORIZADA')
+                                    .slice(0, 10)
+                                    .map(d => d.numero || '(sin número)');
+
+                                if (pendientes.length) {
+                                    msg += `\n\nPendientes (ejemplos):\n- ${pendientes.join('\n- ')}`;
+                                }
+
+                                const errores = results.details
+                                    .filter(d => d && typeof d.estado === 'string' && d.estado.startsWith('ERROR'))
+                                    .slice(0, 3)
+                                    .map(d => `${d.numero || '(sin número)'}: ${d.error || d.estado}`);
+                                if (errores.length) {
+                                    msg += `\n\nErrores (ejemplos):\n- ${errores.join('\n- ')}`;
+                                }
+                            }
+                        }
+
+                        const escapeHtml = (s) => String(s).replace(/[&<>"']/g, (c) => ({
+                            '&': '&amp;',
+                            '<': '&lt;',
+                            '>': '&gt;',
+                            '"': '&quot;',
+                            "'": '&#39;'
+                        }[c]));
+
+                        Swal.fire({
+                            title: 'Proceso de Sincronización',
+                            html: `<pre style="text-align:left;white-space:pre-wrap;margin:0">${escapeHtml(msg)}</pre>`,
+                            icon: results.updated > 0 ? 'success' : 'info',
+                            confirmButtonText: 'Excelente'
+                        }).then(() => location.reload());
+                    } else {
+                        throw new Error('No se pudo completar la sincronización');
+                    }
+                } catch (err) {
+                    console.error(err);
+                    Swal.fire('Error', 'No hay conexión con el servidor de sincronización', 'error');
+                }
+                return;
+            }
+
+            // Fallback: método original si no está disponible el sistema automático
             Swal.fire({
                 title: 'Sincronizando con SRI',
                 text: 'Consultando estados de facturas pendientes...',

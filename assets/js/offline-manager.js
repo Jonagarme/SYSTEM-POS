@@ -173,11 +173,28 @@ const OfflineManager = {
     async saveSale(saleData) {
         if (this.isOnline) {
             try {
-                const res = await fetch('../../modules/ventas/api_guardar_venta.php', {
-                    method: 'POST', body: JSON.stringify(saleData)
+                // Determinar la ruta correcta según dónde estemos
+                const currentPath = window.location.pathname;
+                let apiPath = 'api_guardar_venta.php'; // Por defecto (si ya estamos en modules/ventas/)
+                
+                // Si estamos en otra ubicación, ajustar la ruta
+                if (!currentPath.includes('/modules/ventas/')) {
+                    apiPath = 'modules/ventas/api_guardar_venta.php';
+                }
+                
+                const res = await fetch(apiPath, {
+                    method: 'POST', 
+                    body: JSON.stringify(saleData),
+                    headers: {'Content-Type': 'application/json'}
                 });
+                
+                if (!res.ok) {
+                    throw new Error(`HTTP error! status: ${res.status}`);
+                }
+                
                 return await res.json();
             } catch (e) {
+                console.error("Error guardando venta online:", e);
                 return this.saveOffline(saleData);
             }
         }

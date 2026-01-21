@@ -4,6 +4,87 @@ require_once '../../includes/db.php';
 require_once '../../includes/logifact_api.php';
 session_start();
 
+/**
+ * Intenta obtener autorización desde la BD remota (tabla comprobantes).
+ * Esto evita depender de la consultaSRI cuando el endpoint está protegido.
+ */
+function sri_try_remote_comprobantes($numeroFactura, $claveAcceso = null)
+{
+    static $remotePdo = null;
+
+    $remoteDsn = "mysql:host=sql107.infinityfree.com;dbname=if0_40698217_nexusfact_db;charset=utf8mb4";
+    $remoteUser = 'if0_40698217';
+    $remotePass = 'jonagarme20';
+
+    try {
+        if ($remotePdo === null) {
+            $remotePdo = new PDO($remoteDsn, $remoteUser, $remotePass, [
+                PDO::ATTR_TIMEOUT => 5,
+                PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION
+            ]);
+        }
+
+        // 1) Si ya tenemos claveAcceso, buscar directo
+        if (!empty($claveAcceso) && strlen((string) $claveAcceso) >= 40) {
+            $stmt = $remotePdo->prepare("SELECT numero_autorizacion, fecha_autorizacion, clave_acceso
+                                          FROM comprobantes
+                                          WHERE TRIM(clave_acceso) = ?
+                                          ORDER BY fecha_autorizacion DESC
+                                          LIMIT 1");
+            $stmt->execute([trim((string) $claveAcceso)]);
+            $row = $stmt->fetch(PDO::FETCH_ASSOC);
+            if ($row) {
+                return $row;
+            }
+        }
+
+        // 2) Buscar por serie + secuencial con tolerancia de formatos
+        $parts = explode('-', (string) $numeroFactura);
+        if (count($parts) < 3) {
+            return null;
+        }
+
+        $hasNumericFormat = (bool) preg_match('/^\d{3}$/', $parts[0])
+            && (bool) preg_match('/^\d{3}$/', $parts[1])
+            && (bool) preg_match('/^\d+$/', $parts[2]);
+        if (!$hasNumericFormat) {
+            return null;
+        }
+
+        $serieHyphen = trim($parts[0] . '-' . $parts[1]);
+        $serieSpace = trim($parts[0] . ' ' . $parts[1]);
+        $serieConcat = trim($parts[0] . $parts[1]);
+
+        $secuencialFull = trim($parts[2]);
+        $secuencial8 = substr($secuencialFull, -8);
+        $secuencialShort = ltrim($secuencialFull, '0');
+        if ($secuencialShort === '') {
+            $secuencialShort = '0';
+        }
+
+        $stmt = $remotePdo->prepare("SELECT numero_autorizacion, fecha_autorizacion, clave_acceso
+                                      FROM comprobantes
+                                      WHERE (TRIM(serie) = ? OR TRIM(serie) = ? OR TRIM(serie) = ?)
+                                        AND (TRIM(secuencial) = ? OR TRIM(secuencial) = ? OR TRIM(secuencial) = ?)
+                                      ORDER BY fecha_autorizacion DESC
+                                      LIMIT 1");
+        $stmt->execute([
+            $serieHyphen,
+            $serieSpace,
+            $serieConcat,
+            $secuencialFull,
+            $secuencial8,
+            $secuencialShort
+        ]);
+
+        $row = $stmt->fetch(PDO::FETCH_ASSOC);
+        return $row ?: null;
+    } catch (Exception $e) {
+        // Silencioso: si falla remoto, se intenta consultaSRI.
+        return null;
+    }
+}
+
 $id = $_GET['id'] ?? null;
 
 if (!$id) {
@@ -13,7 +94,7 @@ if (!$id) {
 
 try {
     // 1. Obtener datos de la factura
-    $stmt = $pdo->prepare("SELECT f.*, e.ruc, e.ambiente FROM facturas_venta f JOIN empresas e ON 1=1 WHERE f.id = ?");
+    $stmt = $pdo->prepare("SELECT f.*, e.ruc, e.sri_ambiente as ambiente FROM facturas_venta f JOIN empresas e ON 1=1 WHERE f.id = ?");
     $stmt->execute([$id]);
     $f = $stmt->fetch(PDO::FETCH_ASSOC);
 
@@ -43,6 +124,43 @@ try {
 
     // Para simplificar, si numeroAutorizacion tiene 49 dígitos, es la clave de acceso.
     $claveAcceso = $f['numeroAutorizacion'];
+
+    // 2.1 PRIORIDAD: Buscar autorización en la tabla comprobantes (más confiable)
+    $remote = sri_try_remote_comprobantes($f['numeroFactura'], $claveAcceso);
+    if ($remote) {
+        $numAuthRemote = $remote['numero_autorizacion'] ?? null;
+        $claveRemote = $remote['clave_acceso'] ?? null;
+
+        // Si ya está autorizado en remoto
+        if (!empty($numAuthRemote) && strlen((string) $numAuthRemote) > 10) {
+            $set = ["estadoFactura = 'AUTORIZADA'", 'numeroAutorizacion = ?'];
+            $params = [$numAuthRemote];
+            if (function_exists('db_has_column') && db_has_column($pdo, 'facturas_venta', 'fechaAutorizacion')) {
+                $set[] = 'fechaAutorizacion = NOW()';
+            }
+            if (function_exists('db_has_column') && db_has_column($pdo, 'facturas_venta', 'respuesta_sri')) {
+                $set[] = 'respuesta_sri = ?';
+                $params[] = json_encode(['origen' => 'comprobantes', 'numero_autorizacion' => $numAuthRemote, 'clave_acceso' => $claveRemote ?? null]);
+            }
+            $params[] = $id;
+            $pdo->prepare('UPDATE facturas_venta SET ' . implode(', ', $set) . ' WHERE id = ?')->execute($params);
+
+            echo json_encode([
+                'success' => true,
+                'estado' => 'AUTORIZADA',
+                'numeroAutorizacion' => $numAuthRemote,
+                'message' => 'Autorización obtenida (comprobantes)'
+            ]);
+            exit;
+        }
+
+        // Si aún no hay autorización pero sí clave, guardarla para futuras consultas
+        if ((empty($claveAcceso) || strlen((string) $claveAcceso) < 40) && !empty($claveRemote) && strlen((string) $claveRemote) >= 40) {
+            $pdo->prepare("UPDATE facturas_venta SET estadoFactura = 'PROCESANDO', numeroAutorizacion = ? WHERE id = ?")
+                ->execute([$claveRemote, $id]);
+            $claveAcceso = $claveRemote;
+        }
+    }
 
     // Si no tenemos clave, no podemos consultar sin recrearla.
     // Como LogifactAPI ya tiene lógica para enviar, asumiremos que ya se intentó enviar y tenemos la clave o al menos el número de factura.
@@ -90,8 +208,18 @@ try {
         if ($estadoSRI === 'AUTORIZADO' || $estadoSRI === 'AUTORIZADA') {
             $numAuth = $res['numeroAutorizacion'] ?? $res['autorizacion'] ?? $claveAcceso;
 
-            $pdo->prepare("UPDATE facturas_venta SET estadoFactura = 'AUTORIZADA', numeroAutorizacion = ?, fechaAutorizacion = NOW() WHERE id = ?")
-                ->execute([$numAuth, $id]);
+            $set = ["estadoFactura = 'AUTORIZADA'", 'numeroAutorizacion = ?'];
+            $params = [$numAuth];
+            if (function_exists('db_has_column') && db_has_column($pdo, 'facturas_venta', 'fechaAutorizacion')) {
+                $set[] = 'fechaAutorizacion = NOW()';
+            }
+            if (function_exists('db_has_column') && db_has_column($pdo, 'facturas_venta', 'respuesta_sri')) {
+                $set[] = 'respuesta_sri = ?';
+                $params[] = json_encode($res);
+            }
+            $params[] = $id;
+            $pdo->prepare('UPDATE facturas_venta SET ' . implode(', ', $set) . ' WHERE id = ?')
+                ->execute($params);
 
             echo json_encode([
                 'success' => true,
@@ -105,8 +233,9 @@ try {
 
     echo json_encode([
         'success' => true,
-        'estado' => $f['estadoFactura'],
+        'estado' => ($f['estadoFactura'] ?? 'PENDIENTE'),
         'sri_status' => $res['estado'] ?? 'NO ENCONTRADO',
+        'claveAcceso' => $claveAcceso,
         'message' => 'Aún no autorizado o en proceso'
     ]);
 

@@ -42,3 +42,31 @@ try {
     // We'll handle this in the setup script.
     die("Error connecting to database: " . $e->getMessage());
 }
+
+/**
+ * Verifica si una columna existe en una tabla.
+ * Útil para despliegues donde el esquema puede variar (local/hosting).
+ */
+function db_has_column(PDO $pdo, string $table, string $column): bool
+{
+    static $cache = [];
+    $key = strtolower($table . '.' . $column);
+    if (array_key_exists($key, $cache)) {
+        return $cache[$key];
+    }
+
+    try {
+        $stmt = $pdo->prepare("SELECT COUNT(*)
+                               FROM information_schema.COLUMNS
+                               WHERE TABLE_SCHEMA = DATABASE()
+                                 AND TABLE_NAME = ?
+                                 AND COLUMN_NAME = ?");
+        $stmt->execute([$table, $column]);
+        $cache[$key] = ((int) $stmt->fetchColumn() > 0);
+        return $cache[$key];
+    } catch (Exception $e) {
+        // Si no se puede consultar information_schema, asumimos que no existe
+        $cache[$key] = false;
+        return false;
+    }
+}

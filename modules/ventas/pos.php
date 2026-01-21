@@ -1633,6 +1633,19 @@ $date_now = date('d/m/Y H:i');
                 cliente_id: sale.client.id
             })
                 .then(res => {
+                    console.log('═══════════════════════════════════════════');
+                    console.log('DEBUG: Respuesta de api_guardar_venta.php');
+                    console.log('═══════════════════════════════════════════');
+                    console.log('Respuesta completa:', res);
+                    console.log('success:', res.success);
+                    console.log('id:', res.id);
+                    console.log('numero:', res.numero);
+                    console.log('estado_factura:', res.estado_factura);
+                    console.log('numero_autorizacion:', res.numero_autorizacion);
+                    console.log('external:', res.external);
+                    console.log('sri_error:', res.sri_error);
+                    console.log('═══════════════════════════════════════════');
+                    
                     if (res.success) {
                         // 3. Poblar Ticket Térmico
                         document.getElementById('t-cliente').innerText = saleData.data.razonSocialComprador;
@@ -1642,17 +1655,31 @@ $date_now = date('d/m/Y H:i');
 
                         // Set dynamic invoice number and SRI data
                         document.getElementById('t-numero').innerText = res.numero || '001-001-000000000';
-                        if (res.external) {
-                            const ext = res.external;
-                            const auth = ext.numeroAutorizacion || ext.autorizacion || (ext.estado === 'AUTORIZADO' ? ext.claveAcceso : 'PENDIENTE');
-                            document.getElementById('t-autorizacion').innerText = auth;
-                            document.getElementById('t-clave').innerText = ext.claveAcceso || 'Generando...';
+                        
+                        // Usar el estado normalizado de la BD (res.estado_factura) en lugar de ext.estado
+                        const estadoBD = String(res.estado_factura || 'PENDIENTE').toUpperCase();
+                        const auth = res.numero_autorizacion || (res.external ? (res.external.numeroAutorizacion || res.external.autorizacion || res.external.claveAcceso) : null) || 'PENDIENTE';
+                        const claveAcceso = (res.external && res.external.claveAcceso) || 'Generando...';
+                        
+                        console.log('───────────────────────────────────────────');
+                        console.log('DEBUG: Procesando ticket');
+                        console.log('───────────────────────────────────────────');
+                        console.log('estadoBD:', estadoBD);
+                        console.log('auth:', auth);
+                        console.log('claveAcceso:', claveAcceso);
+                        console.log('───────────────────────────────────────────');
+                        
+                        document.getElementById('t-clave').innerText = claveAcceso;
 
-                            // Si NO está autorizado, iniciar lectura automática
-                            if (ext.estado !== 'AUTORIZADO' && ext.estado !== 'AUTORIZADA') {
-                                document.getElementById('t-autorizacion').innerHTML = '<i class="fas fa-spinner fa-spin"></i> PROCESANDO...';
-                                pollStatus(res.id);
-                            }
+                        // Si ya está AUTORIZADA en la BD, mostrar inmediatamente
+                        if (estadoBD === 'AUTORIZADA' && auth !== 'PENDIENTE') {
+                            console.log('✅ AUTORIZADA inmediatamente - Mostrando número de autorización');
+                            document.getElementById('t-autorizacion').innerHTML = `<span class="text-success" style="word-break: break-all; font-size: 0.75rem;"><i class="fas fa-check-double"></i> ${auth}</span>`;
+                        } else {
+                            console.log('⏳ No autorizada aún - Iniciando verificación (estadoBD=' + estadoBD + ', auth=' + auth + ')');
+                            // No está autorizada aún, esperar un momento y verificar antes de mostrar PROCESANDO
+                            document.getElementById('t-autorizacion').innerHTML = '<i class="fas fa-clock"></i> Verificando autorización...';
+                            verifySoonThenPoll(res.id);
                         }
 
                         const tItems = document.getElementById('t-items');
@@ -1699,7 +1726,7 @@ $date_now = date('d/m/Y H:i');
         }
 
         function pollStatus(idFactura, attempts = 0) {
-            if (attempts > 12) { // 12 intentos * 5 seg = 60 segundos máx
+            if (attempts > 30) { // 30 intentos * 2 seg = 60 segundos máx
                 document.getElementById('t-autorizacion').innerText = 'Pulsar reenvío para actualizar.';
                 return;
             }
@@ -1718,7 +1745,47 @@ $date_now = date('d/m/Y H:i');
                         }
                     })
                     .catch(() => pollStatus(idFactura, attempts + 1));
-            }, 5000);
+                    }, 2000);
+        }
+
+        // Espera ~2.5s, consulta 1 vez, y solo si no autoriza inicia el polling
+        function verifySoonThenPoll(idFactura) {
+            console.log('🔍 verifySoonThenPoll: Esperando 2.5s antes de verificar factura ID=' + idFactura);
+            setTimeout(() => {
+                const badge = document.getElementById('t-autorizacion');
+                if (!badge) return;
+
+                console.log('🔍 verifySoonThenPoll: Consultando estado en api_consultar_estado.php...');
+                fetch(`api_consultar_estado.php?id=${idFactura}`)
+                    .then(r => r.json())
+                    .then(data => {
+                        console.log('📩 Respuesta de api_consultar_estado.php:', data);
+                        console.log('   - success:', data.success);
+                        console.log('   - estado:', data.estado);
+                        console.log('   - numeroAutorizacion:', data.numeroAutorizacion);
+                        
+                        if (data.success && String(data.estado).toUpperCase() === 'AUTORIZADA') {
+                            console.log('✅ ¡AUTORIZADA! Mostrando número de autorización inmediatamente');
+                            badge.innerHTML = `<span class="text-success" style="word-break: break-all; font-size: 0.75rem;"><i class="fas fa-check-double"></i> ${data.numeroAutorizacion}</span>`;
+                            const claveEl = document.getElementById('t-clave');
+                            if (claveEl && data.numeroAutorizacion) {
+                                claveEl.innerText = data.numeroAutorizacion;
+                            }
+                            return;
+                        }
+
+                        console.log('⏳ No autorizada todavía. Estado: ' + data.estado + ' - Iniciando polling...');
+                        // No autorizó todavía: recién aquí mostramos PROCESANDO y arrancamos polling
+                        badge.innerHTML = '<i class="fas fa-spinner fa-spin"></i> PROCESANDO...';
+                        pollStatus(idFactura);
+                    })
+                    .catch((err) => {
+                        console.error('❌ Error al consultar estado:', err);
+                        // Si falla la consulta, igual seguimos con polling
+                        badge.innerHTML = '<i class="fas fa-spinner fa-spin"></i> PROCESANDO...';
+                        pollStatus(idFactura);
+                    });
+            }, 2500);
         }
 
         let activeClientType = 'NATURAL';

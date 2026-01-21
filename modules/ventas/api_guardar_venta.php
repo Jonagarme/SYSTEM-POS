@@ -83,18 +83,42 @@ try {
             $det['description']
         ]);
 
-        // 3. Descontar Stock
+        // 3. Descontar Stock y Registrar en Kardex
         if ($idProducto > 0) {
+            // Descontar stock
             $pdo->prepare("UPDATE productos SET stock = stock - ? WHERE id = ?")
                 ->execute([$det['cantidad'], $idProducto]);
+            
+            // Obtener el saldo actual después del descuento
+            $stmtStock = $pdo->prepare("SELECT stock FROM productos WHERE id = ?");
+            $stmtStock->execute([$idProducto]);
+            $saldoActual = $stmtStock->fetchColumn();
+            
+            // Registrar movimiento en kardex
+            $stmtKardex = $pdo->prepare("INSERT INTO kardex_movimientos 
+                (idProducto, tipoMovimiento, cantidad, ingreso, egreso, saldo, precio, detalle, numeroDocumento, fecha) 
+                VALUES (?, 'VENTA', ?, 0, ?, ?, ?, ?, ?, NOW())");
+            
+            $stmtKardex->execute([
+                $idProducto,
+                $det['cantidad'],
+                $det['cantidad'],
+                $saldoActual,
+                $det['precioUnitario'],
+                'Venta - ' . $det['description'],
+                $numFactura
+            ]);
         }
     }
 
     $pdo->commit();
 
     // 4. Forward to Logifact API (NO afecta el éxito de la venta local)
+    // Inicializar variables para respuesta
     $external_res = null;
     $sriError = null;
+    $estadoFinal = 'PENDIENTE';
+    $authNumber = null;
     
     try {
         $token = LogifactAPI::login();
@@ -124,7 +148,7 @@ try {
         $venta['establecimiento'] = $partesNum[0];
         $venta['puntoEmision'] = $partesNum[1];
         $venta['secuencial'] = $partesNum[2];
-        $venta['ambiente'] = ($empresa['ambiente'] == 2) ? 2 : 1;
+        $venta['ambiente'] = ($empresa['sri_ambiente'] == 2) ? 2 : 1;
         $venta['tipoEmision'] = "1";
         $venta['obligadoContabilidad'] = (isset($empresa['obligado_contabilidad']) && ($empresa['obligado_contabilidad'] == '1' || $empresa['obligado_contabilidad'] == 'SI')) ? "SI" : "NO";
 
@@ -171,28 +195,72 @@ try {
 
         $external_res = LogifactAPI::sendInvoice($payload, $token);
 
+        // LOG CRÍTICO: Ver qué responde Logifact
+        error_log("=== RESPUESTA LOGIFACT (factura $numFactura) ===");
+        error_log("Estado recibido: " . ($external_res['estado'] ?? 'NO ESTADO'));
+        error_log("JSON completo: " . json_encode($external_res));
+
         // --- ACTUALIZAR ESTADO EN BASE DE DATOS LOCAL ---
         if ($external_res && isset($external_res['estado'])) {
-            $sriEstado = strtoupper($external_res['estado']);
+            $sriEstado = strtoupper((string) $external_res['estado']);
             $authNumber = $external_res['numeroAutorizacion'] ?? $external_res['autorizacion'] ?? $external_res['claveAcceso'] ?? null;
+            
+            error_log("Estado normalizado: $sriEstado | Auth: " . ($authNumber ? substr((string)$authNumber, 0, 20) . '...' : 'NO AUTH'));
 
-            if (is_array($authNumber))
+            if (is_array($authNumber)) {
                 $authNumber = json_encode($authNumber);
-
-            // Guardamos la clave de acceso/autorización SIEMPRE que venga algo
-            if ($authNumber) {
-                $dbEstado = ($sriEstado === 'AUTORIZADO' || $sriEstado === 'AUTORIZADA') ? 'AUTORIZADA' : 'PENDIENTE';
-                if ($sriEstado === 'DEVUELTA' || $sriEstado === 'NO AUTORIZADO' || $sriEstado === 'RECHAZADO')
-                    $dbEstado = 'RECHAZADO';
-
-                $pdo->prepare("UPDATE facturas_venta SET estadoFactura = ?, numeroAutorizacion = ?, fechaAutorizacion = " . ($dbEstado === 'AUTORIZADA' ? "NOW()" : "NULL") . " WHERE id = ?")
-                    ->execute([$dbEstado, $authNumber, $idVenta]);
             }
+
+            // Normalizar estado local
+            $dbEstado = 'PENDIENTE';
+            if ($sriEstado === 'AUTORIZADO' || $sriEstado === 'AUTORIZADA') {
+                $dbEstado = 'AUTORIZADA';
+            } elseif ($sriEstado === 'DEVUELTA' || $sriEstado === 'NO AUTORIZADO' || $sriEstado === 'RECHAZADO') {
+                $dbEstado = 'RECHAZADO';
+            } elseif (in_array($sriEstado, ['PROCESANDO', 'RECIBIDA', 'EN PROCESO'], true)) {
+                $dbEstado = 'PROCESANDO';
+            }
+
+            // Construir UPDATE tolerante a esquema
+            $setParts = ['estadoFactura = ?'];
+            $paramsUpd = [$dbEstado];
+
+            if (!empty($authNumber)) {
+                $setParts[] = 'numeroAutorizacion = ?';
+                $paramsUpd[] = (string) $authNumber;
+            }
+
+            if (function_exists('db_has_column') && db_has_column($pdo, 'facturas_venta', 'fechaAutorizacion')) {
+                $setParts[] = "fechaAutorizacion = " . ($dbEstado === 'AUTORIZADA' ? 'NOW()' : 'NULL');
+            }
+
+            if (function_exists('db_has_column') && db_has_column($pdo, 'facturas_venta', 'respuesta_sri')) {
+                $setParts[] = 'respuesta_sri = ?';
+                $paramsUpd[] = json_encode($external_res);
+            }
+
+            $paramsUpd[] = $idVenta;
+            $sqlUpd = 'UPDATE facturas_venta SET ' . implode(', ', $setParts) . ' WHERE id = ?';
+            
+            error_log("SQL UPDATE: $sqlUpd");
+            error_log("Params: " . json_encode($paramsUpd));
+            
+            $stmtUpd = $pdo->prepare($sqlUpd);
+            $stmtUpd->execute($paramsUpd);
+            
+            error_log("UPDATE ejecutado exitosamente. Rows affected: " . $stmtUpd->rowCount());
+            error_log("Estado final guardado: $dbEstado");
+            
+            // Guardar estado normalizado para retornar
+            $estadoFinal = $dbEstado;
+        } else {
+            $estadoFinal = 'PENDIENTE';
         }
-        }
+        } // Cierra if ($token)
     } catch (Exception $sriEx) {
         // Si falla el SRI, la venta ya se guardó localmente como PENDIENTE
         $sriError = $sriEx->getMessage();
+        $estadoFinal = 'PENDIENTE';
         error_log("Error al enviar al SRI (factura $numFactura): " . $sriError);
     }
 
@@ -202,7 +270,8 @@ try {
         'numero' => $numFactura,
         'external' => $external_res,
         'sri_error' => $sriError,
-        'estado_factura' => $external_res && isset($external_res['estado']) ? strtoupper($external_res['estado']) : 'PENDIENTE'
+        'estado_factura' => $estadoFinal ?? 'PENDIENTE',
+        'numero_autorizacion' => $authNumber ?? null
     ]);
 
 } catch (Exception $e) {

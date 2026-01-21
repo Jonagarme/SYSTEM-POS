@@ -1,9 +1,14 @@
 /**
  * Security Script - Protect Source Code
  * Note: These are deterrents and not 100% foolproof.
+ * DEBUG MODE: Temporarily disabled for development
  */
 
 (function() {
+    // DEBUG MODE ENABLED - All security features disabled
+    console.log('🔓 Security.js: DEBUG MODE - DevTools habilitado');
+    return; // Salir inmediatamente sin bloquear nada
+    
     // 1. Disable Right-Click Context Menu
     document.addEventListener('contextmenu', function(e) {
         e.preventDefault();

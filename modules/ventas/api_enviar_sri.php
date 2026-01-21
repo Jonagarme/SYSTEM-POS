@@ -28,8 +28,56 @@ try {
         throw new Exception('Factura no encontrada');
     }
 
-    if (!empty($venta['numeroAutorizacion'])) {
-        throw new Exception('Esta factura ya tiene un número de autorización y no puede ser reenviada');
+    // Si ya está autorizada, no reenviar.
+    if (($venta['estadoFactura'] ?? '') === 'AUTORIZADA') {
+        throw new Exception('Esta factura ya está AUTORIZADA');
+    }
+
+    // Si ya existe una claveAcceso guardada, NO reenviar: consultar estado y actualizar.
+    // (En esta app, numeroAutorizacion también se usa para almacenar la claveAcceso mientras está PROCESANDO.)
+    if (!empty($venta['numeroAutorizacion']) && strlen((string) $venta['numeroAutorizacion']) >= 40) {
+        $claveAcceso = (string) $venta['numeroAutorizacion'];
+        $resConsulta = LogifactAPI::consultaSRI($claveAcceso);
+
+        $estadoSRI = strtoupper($resConsulta['estado'] ?? '');
+        if ($estadoSRI === 'AUTORIZADO' || $estadoSRI === 'AUTORIZADA') {
+            $numAuth = $resConsulta['numeroAutorizacion'] ?? $resConsulta['autorizacion'] ?? $claveAcceso;
+
+            $set = ["estadoFactura = 'AUTORIZADA'", 'numeroAutorizacion = ?'];
+            $params = [$numAuth];
+            if (function_exists('db_has_column') && db_has_column($pdo, 'facturas_venta', 'fechaAutorizacion')) {
+                $set[] = 'fechaAutorizacion = NOW()';
+            }
+            if (function_exists('db_has_column') && db_has_column($pdo, 'facturas_venta', 'respuesta_sri')) {
+                $set[] = 'respuesta_sri = ?';
+                $params[] = json_encode($resConsulta);
+            }
+            $params[] = $id;
+            $pdo->prepare('UPDATE facturas_venta SET ' . implode(', ', $set) . ' WHERE id = ?')
+                ->execute($params);
+
+            echo json_encode([
+                'success' => true,
+                'message' => 'Factura ya estaba enviada; ahora está AUTORIZADA',
+                'estado' => 'AUTORIZADA',
+                'numeroAutorizacion' => $numAuth,
+                'external' => $resConsulta
+            ]);
+            exit;
+        }
+
+        // Mantener PROCESANDO
+        $pdo->prepare("UPDATE facturas_venta SET estadoFactura = 'PROCESANDO' WHERE id = ?")
+            ->execute([$id]);
+
+        echo json_encode([
+            'success' => true,
+            'message' => 'Factura ya estaba enviada; aún está en PROCESANDO',
+            'estado' => 'PROCESANDO',
+            'claveAcceso' => $claveAcceso,
+            'external' => $resConsulta
+        ]);
+        exit;
     }
 
     // 2. Obtener datos de la empresa
@@ -157,7 +205,7 @@ try {
     $sriEstado = strtoupper($res['estado'] ?? '');
     $isAuthorized = ($sriEstado === 'AUTORIZADO' || $sriEstado === 'AUTORIZADA');
 
-    // Si NO está autorizado pero devolvió algo (error del SRI o DEVUELTA)
+    // Si NO está autorizado pero devolvió algo
     if (!$isAuthorized && (!empty($sriEstado) || isset($res['mensajes']))) {
         $msgStatus = $sriEstado ?: 'RECHAZADO';
         $msg = "SRI: $msgStatus";
@@ -176,7 +224,30 @@ try {
         if (is_array($auth))
             $auth = json_encode($auth);
 
-        $dbEstado = ($msgStatus === 'DEVUELTA' || $msgStatus === 'NO AUTORIZADO') ? 'RECHAZADO' : $msgStatus;
+        // PROCESANDO/RECIBIDA: es un estado normal (no error)
+        if (in_array($msgStatus, ['PROCESANDO', 'RECIBIDA', 'EN PROCESO', 'PENDIENTE'], true)) {
+            $set = ["estadoFactura = 'PROCESANDO'", 'numeroAutorizacion = ?'];
+            $params = [$auth];
+            if (function_exists('db_has_column') && db_has_column($pdo, 'facturas_venta', 'respuesta_sri')) {
+                $set[] = 'respuesta_sri = ?';
+                $params[] = json_encode($res);
+            }
+            $params[] = $id;
+            $pdo->prepare('UPDATE facturas_venta SET ' . implode(', ', $set) . ' WHERE id = ?')
+                ->execute($params);
+
+            echo json_encode([
+                'success' => true,
+                'message' => 'Documento enviado. SRI en procesamiento',
+                'estado' => 'PROCESANDO',
+                'claveAcceso' => $auth,
+                'external' => $res
+            ]);
+            exit;
+        }
+
+        // Estados de rechazo/devuelta: sí son error
+        $dbEstado = ($msgStatus === 'DEVUELTA' || $msgStatus === 'NO AUTORIZADO' || $msgStatus === 'RECHAZADO') ? 'RECHAZADO' : $msgStatus;
         $pdo->prepare("UPDATE facturas_venta SET estadoFactura = ?, numeroAutorizacion = ? WHERE id = ?")
             ->execute([$dbEstado, $auth, $id]);
 
@@ -193,13 +264,24 @@ try {
         }
 
         if ($auth) {
-            $pdo->prepare("UPDATE facturas_venta SET numeroAutorizacion = ?, estadoFactura = 'AUTORIZADA' WHERE id = ?")
-                ->execute([$auth, $id]);
+            $set = ['numeroAutorizacion = ?', "estadoFactura = 'AUTORIZADA'"];
+            $params = [$auth];
+            if (function_exists('db_has_column') && db_has_column($pdo, 'facturas_venta', 'fechaAutorizacion')) {
+                $set[] = 'fechaAutorizacion = NOW()';
+            }
+            if (function_exists('db_has_column') && db_has_column($pdo, 'facturas_venta', 'respuesta_sri')) {
+                $set[] = 'respuesta_sri = ?';
+                $params[] = json_encode($res);
+            }
+            $params[] = $id;
+            $pdo->prepare('UPDATE facturas_venta SET ' . implode(', ', $set) . ' WHERE id = ?')
+                ->execute($params);
         }
 
         echo json_encode([
             'success' => true,
             'message' => 'Factura procesada con éxito',
+            'estado' => 'AUTORIZADA',
             'external' => $res
         ]);
     } else {
