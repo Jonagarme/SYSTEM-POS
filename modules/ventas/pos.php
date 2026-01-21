@@ -1647,6 +1647,12 @@ $date_now = date('d/m/Y H:i');
                             const auth = ext.numeroAutorizacion || ext.autorizacion || (ext.estado === 'AUTORIZADO' ? ext.claveAcceso : 'PENDIENTE');
                             document.getElementById('t-autorizacion').innerText = auth;
                             document.getElementById('t-clave').innerText = ext.claveAcceso || 'Generando...';
+
+                            // Si NO está autorizado, iniciar lectura automática
+                            if (ext.estado !== 'AUTORIZADO' && ext.estado !== 'AUTORIZADA') {
+                                document.getElementById('t-autorizacion').innerHTML = '<i class="fas fa-spinner fa-spin"></i> PROCESANDO...';
+                                pollStatus(res.id);
+                            }
                         }
 
                         const tItems = document.getElementById('t-items');
@@ -1690,6 +1696,29 @@ $date_now = date('d/m/Y H:i');
                     console.error("Error:", err);
                     alert("Error de conexión al guardar.");
                 });
+        }
+
+        function pollStatus(idFactura, attempts = 0) {
+            if (attempts > 12) { // 12 intentos * 5 seg = 60 segundos máx
+                document.getElementById('t-autorizacion').innerText = 'Pulsar reenvío para actualizar.';
+                return;
+            }
+
+            setTimeout(() => {
+                const badge = document.getElementById('t-autorizacion');
+                if (!badge) return; // Si cerraron el modal
+
+                fetch(`api_consultar_estado.php?id=${idFactura}`)
+                    .then(r => r.json())
+                    .then(data => {
+                        if (data.success && data.estado === 'AUTORIZADA') {
+                            badge.innerHTML = `<span class="text-success" style="word-break: break-all; font-size: 0.75rem;"><i class="fas fa-check-double"></i> ${data.numeroAutorizacion}</span>`;
+                        } else {
+                            pollStatus(idFactura, attempts + 1);
+                        }
+                    })
+                    .catch(() => pollStatus(idFactura, attempts + 1));
+            }, 5000);
         }
 
         let activeClientType = 'NATURAL';

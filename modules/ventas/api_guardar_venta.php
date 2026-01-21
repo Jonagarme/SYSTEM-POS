@@ -18,7 +18,7 @@ try {
 
     $venta = $data['data'];
     $usuario_id = $_SESSION['user_id'] ?? 1;
-    $idPuntoEmision = $input['id_punto_emision'] ?? null;
+    $idPuntoEmision = $data['id_punto_emision'] ?? null;
 
     // 1. Obtener datos del punto de emisión y establecimiento
     if ($idPuntoEmision) {
@@ -38,10 +38,10 @@ try {
     $secuencial = $punto['secuencial_factura'];
     $numFactura = $codEst . "-" . $codPunto . "-" . str_pad($secuencial, 9, '0', STR_PAD_LEFT);
 
-    // 2. Insertar en facturas_venta
+    // 2. Insertar en facturas_venta (estado inicial PENDIENTE hasta que SRI autorice)
     $stmt = $pdo->prepare("INSERT INTO facturas_venta 
-        (idCliente, idUsuario, numeroFactura, fechaEmision, subtotal, descuento, iva, total, estado, creadoPor, creadoDate) 
-        VALUES (?, ?, ?, NOW(), ?, ?, ?, ?, 'PAGADA', ?, NOW())");
+        (idCliente, idUsuario, numeroFactura, fechaEmision, subtotal, descuento, iva, total, estado, estadoFactura, creadoPor, creadoDate) 
+        VALUES (?, ?, ?, NOW(), ?, ?, ?, ?, 'PAGADA', 'PENDIENTE', ?, NOW())");
 
     $stmt->execute([
         $data['cliente_id'] ?? 275,
@@ -92,10 +92,13 @@ try {
 
     $pdo->commit();
 
-    // 4. Forward to Logifact API
-    $token = LogifactAPI::login();
+    // 4. Forward to Logifact API (NO afecta el éxito de la venta local)
     $external_res = null;
-    if ($token) {
+    $sriError = null;
+    
+    try {
+        $token = LogifactAPI::login();
+        if ($token) {
         // Inyectar/Corregir ruta de certificado para el servidor remoto
         try {
             $stmtE = $pdo->query("SELECT * FROM empresas LIMIT 1");
@@ -170,30 +173,36 @@ try {
 
         // --- ACTUALIZAR ESTADO EN BASE DE DATOS LOCAL ---
         if ($external_res && isset($external_res['estado'])) {
-            $sriEstado = $external_res['estado'];
+            $sriEstado = strtoupper($external_res['estado']);
             $authNumber = $external_res['numeroAutorizacion'] ?? $external_res['autorizacion'] ?? $external_res['claveAcceso'] ?? null;
 
             if (is_array($authNumber))
                 $authNumber = json_encode($authNumber);
 
-            // Si es exitoso, marcamos como AUTORIZADA
-            if ($sriEstado === 'AUTORIZADO') {
-                $pdo->prepare("UPDATE facturas_venta SET estadoFactura = 'AUTORIZADA', numeroAutorizacion = ? WHERE id = ?")
-                    ->execute([$authNumber, $idVenta]);
-            } else {
-                // Si fue devuelta o rechazada, marcamos el error
-                $dbEstado = ($sriEstado === 'DEVUELTA' || $sriEstado === 'NO AUTORIZADO') ? 'RECHAZADO' : $sriEstado;
-                $pdo->prepare("UPDATE facturas_venta SET estadoFactura = ?, numeroAutorizacion = NULL WHERE id = ?")
-                    ->execute([$dbEstado, $idVenta]);
+            // Guardamos la clave de acceso/autorización SIEMPRE que venga algo
+            if ($authNumber) {
+                $dbEstado = ($sriEstado === 'AUTORIZADO' || $sriEstado === 'AUTORIZADA') ? 'AUTORIZADA' : 'PENDIENTE';
+                if ($sriEstado === 'DEVUELTA' || $sriEstado === 'NO AUTORIZADO' || $sriEstado === 'RECHAZADO')
+                    $dbEstado = 'RECHAZADO';
+
+                $pdo->prepare("UPDATE facturas_venta SET estadoFactura = ?, numeroAutorizacion = ?, fechaAutorizacion = " . ($dbEstado === 'AUTORIZADA' ? "NOW()" : "NULL") . " WHERE id = ?")
+                    ->execute([$dbEstado, $authNumber, $idVenta]);
             }
         }
+        }
+    } catch (Exception $sriEx) {
+        // Si falla el SRI, la venta ya se guardó localmente como PENDIENTE
+        $sriError = $sriEx->getMessage();
+        error_log("Error al enviar al SRI (factura $numFactura): " . $sriError);
     }
 
     echo json_encode([
         'success' => true,
         'id' => $idVenta,
         'numero' => $numFactura,
-        'external' => $external_res
+        'external' => $external_res,
+        'sri_error' => $sriError,
+        'estado_factura' => $external_res && isset($external_res['estado']) ? strtoupper($external_res['estado']) : 'PENDIENTE'
     ]);
 
 } catch (Exception $e) {

@@ -394,9 +394,15 @@ $facturas_count = count($facturas);
                         <h1><i class="fas fa-file-invoice"></i> Facturas Electrónicas</h1>
                         <p>Gestión y consulta de facturas electrónicas</p>
                     </div>
-                    <div
-                        style="background: rgba(255,255,255,0.2); padding: 5px 12px; border-radius: 6px; font-size: 0.75rem; font-weight: 700;">
-                        <i class="fas fa-file-alt"></i> <?php echo $facturas_count; ?> facturas encontradas
+                    <div style="display: flex; align-items: center; gap: 10px;">
+                        <button id="btn-sync-sri" class="btn"
+                            style="background: white; color: #6366f1; border: none; font-weight: 700; height: 38px; border-radius: 8px; padding: 0 15px; cursor: pointer; display: flex; align-items: center; gap: 8px;">
+                            <i class="fas fa-satellite-dish"></i> Sincronizar SRI
+                        </button>
+                        <div
+                            style="background: rgba(255,255,255,0.2); padding: 5px 12px; border-radius: 6px; font-size: 0.75rem; font-weight: 700; height: 38px; display: flex; align-items: center;">
+                            <i class="fas fa-file-alt"></i> <?php echo $facturas_count; ?> facturas
+                        </div>
                     </div>
                 </div>
 
@@ -786,6 +792,77 @@ $facturas_count = count($facturas);
         }
 
         closes.forEach(btn => btn.onclick = () => modal.style.display = 'none');
+
+        // Lógica de Sincronización Masiva SRI
+        document.getElementById('btn-sync-sri')?.addEventListener('click', function () {
+            Swal.fire({
+                title: 'Sincronizando con SRI',
+                text: 'Consultando estados de facturas pendientes...',
+                allowOutsideClick: false,
+                didOpen: () => { Swal.showLoading(); }
+            });
+
+            fetch('cron_update_status.php?format=json')
+                .then(r => r.json())
+                .then(data => {
+                    if (data.success) {
+                        const results = data.results;
+                        let msg = `Se revisaron ${results.checked} documentos.\n`;
+
+                        const escapeHtml = (s) => String(s).replace(/[&<>"']/g, (c) => ({
+                            '&': '&amp;',
+                            '<': '&lt;',
+                            '>': '&gt;',
+                            '"': '&quot;',
+                            "'": '&#39;'
+                        }[c]));
+
+                        if (results.updated > 0) {
+                            msg += `✅ ${results.updated} facturas han sido AUTORIZADAS ahora.`;
+                        } else {
+                            msg += `ℹ️ No hay nuevas actualizaciones del SRI todavía.`;
+                            if (results.last_error) {
+                                msg += `\n\n⚠️ Nota: ${results.last_error}`;
+                            }
+
+                            msg += `\n\nDetalles recibidos: ${Array.isArray(results.details) ? results.details.length : 0}`;
+
+                            // Mostrar cuáles quedaron pendientes para poder depurar
+                            if (Array.isArray(results.details) && results.details.length) {
+                                const pendientes = results.details
+                                    .filter(d => d && d.estado && d.estado !== 'AUTORIZADA')
+                                    .slice(0, 10)
+                                    .map(d => d.numero || '(sin número)');
+
+                                if (pendientes.length) {
+                                    msg += `\n\nPendientes (ejemplos):\n- ${pendientes.join('\n- ')}`;
+                                }
+
+                                const errores = results.details
+                                    .filter(d => d && typeof d.estado === 'string' && d.estado.startsWith('ERROR'))
+                                    .slice(0, 3)
+                                    .map(d => `${d.numero || '(sin número)'}: ${d.error || d.estado}`);
+                                if (errores.length) {
+                                    msg += `\n\nErrores (ejemplos):\n- ${errores.join('\n- ')}`;
+                                }
+                            }
+                        }
+
+                        Swal.fire({
+                            title: 'Proceso de Sincronización',
+                            html: `<pre style="text-align:left;white-space:pre-wrap;margin:0">${escapeHtml(msg)}</pre>`,
+                            icon: results.updated > 0 ? 'success' : 'info',
+                            confirmButtonText: 'Excelente'
+                        }).then(() => location.reload());
+                    } else {
+                        Swal.fire('Atención', data.error || 'No se pudo completar la sincronización', 'warning');
+                    }
+                })
+                .catch(err => {
+                    console.error(err);
+                    Swal.fire('Error', 'No hay conexión con el servidor de sincronización', 'error');
+                });
+        });
     </script>
 </body>
 

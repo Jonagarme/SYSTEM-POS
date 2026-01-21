@@ -154,8 +154,8 @@ try {
     error_log("Respuesta Logifact: " . json_encode($res));
 
     // Determinar estado real
-    $sriEstado = $res['estado'] ?? '';
-    $isAuthorized = ($sriEstado === 'AUTORIZADO'); // SRIV2 es más estricto
+    $sriEstado = strtoupper($res['estado'] ?? '');
+    $isAuthorized = ($sriEstado === 'AUTORIZADO' || $sriEstado === 'AUTORIZADA');
 
     // Si NO está autorizado pero devolvió algo (error del SRI o DEVUELTA)
     if (!$isAuthorized && (!empty($sriEstado) || isset($res['mensajes']))) {
@@ -171,10 +171,14 @@ try {
             }
         }
 
-        // Si es DEVUELTA o ERROR, debemos marcarlo correctamente en DB para permitir reenvío
+        // Guardar la clave aunque no esté autorizada para seguimiento futuro
+        $auth = $res['numeroAutorizacion'] ?? $res['autorizacion'] ?? $res['claveAcceso'] ?? null;
+        if (is_array($auth))
+            $auth = json_encode($auth);
+
         $dbEstado = ($msgStatus === 'DEVUELTA' || $msgStatus === 'NO AUTORIZADO') ? 'RECHAZADO' : $msgStatus;
-        $pdo->prepare("UPDATE facturas_venta SET estadoFactura = ?, numeroAutorizacion = NULL WHERE id = ?")
-            ->execute([$dbEstado, $id]);
+        $pdo->prepare("UPDATE facturas_venta SET estadoFactura = ?, numeroAutorizacion = ? WHERE id = ?")
+            ->execute([$dbEstado, $auth, $id]);
 
         throw new Exception($msg);
     }
