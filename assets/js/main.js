@@ -29,14 +29,6 @@ document.addEventListener('DOMContentLoaded', () => {
         item.addEventListener('click', function(e) {
             e.preventDefault();
             const parent = this.parentElement;
-            
-            // Close other submenus if needed (optional)
-            /*
-            document.querySelectorAll('.has-submenu').forEach(other => {
-                if (other !== parent) other.classList.remove('open');
-            });
-            */
-            
             parent.classList.toggle('open');
         });
     });

@@ -17,29 +17,34 @@ try {
     $pdo->beginTransaction();
 
     $venta = $data['data'];
-    $usuario_id = $_SESSION['user_id'] ?? 1; // ID por defecto si no hay sesión
+    $usuario_id = $_SESSION['user_id'] ?? 1;
+    $idPuntoEmision = $input['id_punto_emision'] ?? null;
 
-    // 1. Insertar en facturas_venta
-    // Nota: Usamos los nombres de columna de tu tabla real detectados en el backup
+    // 1. Obtener datos del punto de emisión y establecimiento
+    if ($idPuntoEmision) {
+        $stmtP = $pdo->prepare("SELECT p.*, e.codigo as cod_est FROM puntos_emision p JOIN establecimientos e ON p.id_establecimiento = e.id WHERE p.id = ? AND p.activo = 1");
+        $stmtP->execute([$idPuntoEmision]);
+    } else {
+        $stmtP = $pdo->query("SELECT p.*, e.codigo as cod_est FROM puntos_emision p JOIN establecimientos e ON p.id_establecimiento = e.id WHERE p.activo = 1 ORDER BY e.codigo, p.codigo LIMIT 1");
+    }
+    $punto = $stmtP->fetch(PDO::FETCH_ASSOC);
+
+    if (!$punto) {
+        throw new Exception("No hay un punto de emisión activo configurado. Por favor, configure uno en el menú Configuración > Puntos de Emisión.");
+    }
+
+    $codEst = $punto['cod_est'];
+    $codPunto = $punto['codigo'];
+    $secuencial = $punto['secuencial_factura'];
+    $numFactura = $codEst . "-" . $codPunto . "-" . str_pad($secuencial, 9, '0', STR_PAD_LEFT);
+
+    // 2. Insertar en facturas_venta
     $stmt = $pdo->prepare("INSERT INTO facturas_venta 
         (idCliente, idUsuario, numeroFactura, fechaEmision, subtotal, descuento, iva, total, estado, creadoPor, creadoDate) 
         VALUES (?, ?, ?, NOW(), ?, ?, ?, ?, 'PAGADA', ?, NOW())");
 
-    // Obtener la secuencia correcta (Ecuador: Establecimiento-PuntoEmision-Secuencial)
-    // Buscamos el último número REAL de factura electrónica para incrementar
-    $stmtSeq = $pdo->query("SELECT numeroFactura FROM facturas_venta WHERE numeroFactura LIKE '001-001-%' ORDER BY numeroFactura DESC LIMIT 1");
-    $lastFactura = $stmtSeq->fetchColumn();
-
-    $secuencial = 1;
-    if ($lastFactura) {
-        $partes = explode('-', $lastFactura);
-        $ultimoValor = end($partes);
-        $secuencial = intval($ultimoValor) + 1;
-    }
-    $numFactura = "001-001-" . str_pad($secuencial, 9, '0', STR_PAD_LEFT);
-
     $stmt->execute([
-        $data['cliente_id'] ?? 275, // Consumidor final por defecto
+        $data['cliente_id'] ?? 275,
         $usuario_id,
         $numFactura,
         $venta['totalSinImpuestos'],
@@ -50,6 +55,10 @@ try {
     ]);
 
     $idVenta = $pdo->lastInsertId();
+
+    // 3. Incrementar el secuencial
+    $pdo->prepare("UPDATE puntos_emision SET secuencial_factura = secuencial_factura + 1 WHERE id = ?")
+        ->execute([$punto['id']]);
 
     // 2. Insertar detalles
     $stmtDet = $pdo->prepare("INSERT INTO facturas_venta_detalle 

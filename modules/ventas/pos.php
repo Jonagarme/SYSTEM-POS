@@ -500,10 +500,31 @@ $date_now = date('d/m/Y H:i');
                                             placeholder="Buscar cliente por cédula, RUC o nombre..."
                                             style="padding-left: 35px;">
                                     </div>
-                                    <button class="btn btn-secondary" title="Limpiar"><i
-                                            class="fas fa-times"></i></button>
                                     <button class="btn btn-primary" id="btn-nuevo-cliente" title="Nuevo Cliente"><i
                                             class="fas fa-user-plus"></i></button>
+                                </div>
+
+                                <!-- SRI Emission Point (Moved & Compacted) -->
+                                <div
+                                    style="display: flex; align-items: center; gap: 15px; margin: 15px 0; padding: 10px; background: #f8fafc; border-radius: 8px; border: 1px solid #eef2f7;">
+                                    <div style="flex: 1;">
+                                        <label
+                                            style="font-size: 0.7rem; font-weight: 700; color: #64748b; margin-bottom: 4px; display: block; text-transform: uppercase;">
+                                            <i class="fas fa-cash-register"></i> Punto de Emisión
+                                        </label>
+                                        <select id="pos-punto-emision" class="form-control"
+                                            style="height: 32px; font-size: 0.8rem; font-weight: 600; border-color: #cbd5e1; padding: 0 10px;"
+                                            onchange="updatePuntoEmision()">
+                                            <!-- Loaded via JS -->
+                                        </select>
+                                    </div>
+                                    <div style="flex: 1; text-align: right;">
+                                        <span
+                                            style="font-size: 0.7rem; color: #94a3b8; display: block; margin-bottom: 4px;">Siguiente
+                                            Secuencial</span>
+                                        <strong id="punto-hint"
+                                            style="font-size: 0.85rem; color: #6366f1;">Cargando...</strong>
+                                    </div>
                                 </div>
                                 <div class="client-info-display">
                                     <div>
@@ -642,6 +663,7 @@ $date_now = date('d/m/Y H:i');
                                     </tbody>
                                 </table>
                             </div>
+
 
                             <!-- Discount Selection -->
                             <div class="panel-body" style="padding-top: 0;">
@@ -1039,6 +1061,49 @@ $date_now = date('d/m/Y H:i');
             localStorage.setItem('pos_sales', JSON.stringify(sales));
             localStorage.setItem('pos_active_index', activeSaleIndex);
         }
+
+        let puntosEmision = [];
+        const puntoSelect = document.getElementById('pos-punto-emision');
+        const puntoHint = document.getElementById('punto-hint');
+
+        async function loadPuntosEmision() {
+            try {
+                const response = await fetch('api_get_puntos.php');
+                const data = await response.json();
+                if (data.success) {
+                    puntosEmision = data.puntos;
+                    puntoSelect.innerHTML = puntosEmision.map(p =>
+                        `<option value="${p.id}">${p.cod_est}-${p.codigo} (${p.descripcion})</option>`
+                    ).join('');
+
+                    if (puntosEmision.length > 0) {
+                        // Restore selected point for active sale if exists
+                        const currentPunto = sales[activeSaleIndex].id_punto_emision || puntosEmision[0].id;
+                        puntoSelect.value = currentPunto;
+                        updatePuntoHint();
+                    }
+                }
+            } catch (error) {
+                console.error('Error loading puntos de emision:', error);
+            }
+        }
+
+        function updatePuntoEmision() {
+            const selectedId = puntoSelect.value;
+            sales[activeSaleIndex].id_punto_emision = selectedId;
+            updatePuntoHint();
+            saveState();
+        }
+
+        function updatePuntoHint() {
+            const p = puntosEmision.find(x => x.id == puntoSelect.value);
+            if (p) {
+                puntoHint.innerText = `${p.cod_est}-${p.codigo}-${String(p.secuencial_factura).padStart(9, '0')}`;
+            }
+        }
+
+        // Add this to your init flow
+        loadPuntosEmision();
 
         function loadState() {
             const savedSales = localStorage.getItem('pos_sales');
@@ -1563,6 +1628,7 @@ $date_now = date('d/m/Y H:i');
             console.log("JSON a enviar:", saleData);
 
             OfflineManager.saveSale({
+                id_punto_emision: sale.id_punto_emision || (puntosEmision.length > 0 ? puntosEmision[0].id : null),
                 data: saleData.data,
                 cliente_id: sale.client.id
             })

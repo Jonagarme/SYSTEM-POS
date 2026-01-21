@@ -4,6 +4,7 @@
  * Requires $root variable to be defined for correct paths
  */
 $root = $root ?? '';
+$current_page = $current_page ?? '';
 ?>
 <aside class="sidebar" id="sidebar">
     <div class="sidebar-header">
@@ -153,8 +154,15 @@ $root = $root ?? '';
                 </ul>
             </li>
 
-            <li class="<?php echo ($current_page == 'config') ? 'active' : ''; ?>">
-                <a href="#"><i class="fas fa-cog"></i> <span>Configuración</span></a>
+            <li
+                class="has-submenu <?php echo (strpos($current_page ?? '', 'config') !== false) ? 'open active' : ''; ?>">
+                <a href="#"><i class="fas fa-cog"></i> <span>Configuración</span> <i
+                        class="fas fa-chevron-right arrow"></i></a>
+                <ul class="submenu">
+                    <li><a href="<?php echo $root; ?>modules/config/configuracion.php">Empresa</a></li>
+                    <li><a href="<?php echo $root; ?>modules/config/puntos_emision.php">Puntos de Emisión</a></li>
+                    <li><a href="<?php echo $root; ?>modules/config/impuestos.php">Impuestos</a></li>
+                </ul>
             </li>
         </ul>
     </nav>
