@@ -17,6 +17,8 @@ $current_page = 'inventario_config';
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="stylesheet" href="../../assets/css/style.css">
+    <!-- Select2 para búsqueda de productos -->
+    <link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet" />
     <style>
         .stock-header {
             display: flex;
@@ -263,13 +265,13 @@ $current_page = 'inventario_config';
                 <div class="modal-body-stock">
                     <div class="form-group-stock">
                         <label>Producto *</label>
-                        <select class="form-control">
-                            <option>Seleccione un producto...</option>
+                        <select id="producto-select" class="form-control" style="width: 100%;">
+                            <option value="">Buscar por código o nombre...</option>
                         </select>
                     </div>
                     <div class="form-group-stock">
                         <label>Stock Actual</label>
-                        <input type="text" class="form-control" readonly style="background: #f8fafc;">
+                        <input type="text" id="stock-actual" class="form-control" readonly style="background: #f8fafc;">
                     </div>
                     <div class="form-group-stock">
                         <label>Stock Mínimo *</label>
@@ -306,12 +308,81 @@ $current_page = 'inventario_config';
     </div>
 
     <?php include $root . 'includes/scripts.php'; ?>
+    <!-- Select2 JS -->
+    <script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
     <script>
         function openStockModal() {
             document.getElementById('stock-modal').style.display = 'flex';
+            // Inicializar Select2 cuando se abre el modal
+            if (!$('#producto-select').hasClass('select2-hidden-accessible')) {
+                initProductSelect();
+            }
         }
+        
         function closeStockModal() {
             document.getElementById('stock-modal').style.display = 'none';
+        }
+
+        function initProductSelect() {
+            $('#producto-select').select2({
+                placeholder: 'Buscar por código o nombre...',
+                allowClear: true,
+                dropdownParent: $('#stock-modal'),
+                width: '100%',
+                ajax: {
+                    url: '../productos/api_get_all.php',
+                    dataType: 'json',
+                    delay: 250,
+                    data: function (params) {
+                        return {
+                            q: params.term || ''
+                        };
+                    },
+                    processResults: function (data) {
+                        // Filtrar productos si hay búsqueda
+                        const term = $('#producto-select').data('select2').$dropdown.find('.select2-search__field').val();
+                        let filtered = data;
+                        
+                        if (term) {
+                            const searchTerm = term.toLowerCase();
+                            filtered = data.filter(p => 
+                                (p.codigoPrincipal && p.codigoPrincipal.toLowerCase().includes(searchTerm)) ||
+                                (p.nombre && p.nombre.toLowerCase().includes(searchTerm))
+                            );
+                        }
+                        
+                        const results = filtered.map(p => ({
+                            id: p.id,
+                            text: `${p.codigoPrincipal || 'S/C'} - ${p.nombre || 'Sin nombre'}`,
+                            stock: p.stock || 0
+                        }));
+
+                        return {
+                            results: results
+                        };
+                    },
+                    cache: true
+                },
+                language: {
+                    noResults: function() {
+                        return "No se encontraron productos";
+                    },
+                    searching: function() {
+                        return "Buscando...";
+                    }
+                }
+            });
+
+            // Cuando se selecciona un producto, mostrar su stock actual
+            $('#producto-select').on('select2:select', function (e) {
+                const data = e.params.data;
+                $('#stock-actual').val(data.stock || 0);
+            });
+
+            // Limpiar stock actual cuando se limpia la selección
+            $('#producto-select').on('select2:clear', function (e) {
+                $('#stock-actual').val('');
+            });
         }
     </script>
 </body>

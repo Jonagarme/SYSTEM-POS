@@ -267,7 +267,7 @@ $current_page = 'inventario_ajustes';
                         <button class="btn btn-outline">
                             <i class="fas fa-file-export"></i> Exportar
                         </button>
-                        <button class="btn btn-primary">
+                        <button class="btn btn-primary" onclick="location.href='nuevo_ajuste.php'">
                             <i class="fas fa-plus"></i> Nuevo Ajuste
                         </button>
                     </div>
@@ -372,9 +372,11 @@ $current_page = 'inventario_ajustes';
                                         <td><?php echo date('d/m/Y H:i', strtotime($a['fecha'])); ?></td>
                                         <td>
                                             <div style="font-weight: 600; color: #1e293b;">
-                                                <?php echo htmlspecialchars($a['producto_nombre']); ?></div>
+                                                <?php echo htmlspecialchars($a['producto_nombre']); ?>
+                                            </div>
                                             <div style="font-size: 0.75rem; color: #64748b;">
-                                                <?php echo htmlspecialchars($a['barcode']); ?></div>
+                                                <?php echo htmlspecialchars($a['barcode']); ?>
+                                            </div>
                                         </td>
                                         <td><span
                                                 class="badge-aj <?php echo $badge_class; ?>"><?php echo $a['tipo_ajuste']; ?></span>
