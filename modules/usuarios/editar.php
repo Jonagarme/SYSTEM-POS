@@ -13,6 +13,50 @@ if (!$user_id) {
     exit;
 }
 
+// Handle form submission
+$message = '';
+$error = '';
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    $nombreUsuario = $_POST['nombreUsuario'] ?? '';
+    $nombreCompleto = $_POST['nombreCompleto'] ?? '';
+    $email = $_POST['email'] ?? '';
+    $password = $_POST['password'] ?? '';
+    $idRol = !empty($_POST['idRol']) ? (int) $_POST['idRol'] : null;
+    $activo = isset($_POST['activo']) ? 1 : 0;
+    $editadoPor = $_SESSION['user_id'] ?? 1;
+
+    try {
+        if (empty($nombreUsuario)) {
+            throw new Exception("El nombre de usuario es obligatorio.");
+        }
+
+        // Validate unique username (excluding current user)
+        $stmtCheck = $pdo->prepare("SELECT id FROM usuarios WHERE nombreUsuario = ? AND id != ? AND anulado = 0");
+        $stmtCheck->execute([$nombreUsuario, $user_id]);
+        if ($stmtCheck->fetch()) {
+            throw new Exception("El nombre de usuario already exists.");
+        }
+
+        if (!empty($password)) {
+            $passwordHash = password_hash($password, PASSWORD_DEFAULT);
+            $stmt = $pdo->prepare("UPDATE usuarios SET nombreUsuario = ?, nombreCompleto = ?, email = ?, contrasenaHash = ?, idRol = ?, activo = ?, editadoPor = ?, editadoDate = NOW() WHERE id = ?");
+            $stmt->execute([$nombreUsuario, $nombreCompleto, $email, $passwordHash, $idRol, $activo, $editadoPor, $user_id]);
+        } else {
+            $stmt = $pdo->prepare("UPDATE usuarios SET nombreUsuario = ?, nombreCompleto = ?, email = ?, idRol = ?, activo = ?, editadoPor = ?, editadoDate = NOW() WHERE id = ?");
+            $stmt->execute([$nombreUsuario, $nombreCompleto, $email, $idRol, $activo, $editadoPor, $user_id]);
+        }
+
+        // Log Audit
+        require_once '../../includes/audit.php';
+        registrarAuditoria('Usuarios', 'EDITAR', 'usuarios', $user_id, "Usuario actualizado: $nombreUsuario ($nombreCompleto)");
+
+        $message = "Usuario actualizado correctamente.";
+
+    } catch (Exception $e) {
+        $error = $e->getMessage();
+    }
+}
+
 // Fetch user data
 $stmt = $pdo->prepare("SELECT * FROM usuarios WHERE id = ?");
 $stmt->execute([$user_id]);
@@ -172,8 +216,21 @@ $roles = $stmtRoles->fetchAll();
                     <h1><i class="fas fa-user-edit"></i> Editar Usuario</h1>
                 </div>
 
+                <?php if ($message): ?>
+                    <div class="alert alert-success"
+                        style="padding: 15px; background: #dcfce7; color: #15803d; border-radius: 8px; margin-bottom: 20px; display: flex; align-items: center; gap: 10px;">
+                        <i class="fas fa-check-circle"></i> <?php echo $message; ?>
+                    </div>
+                <?php endif; ?>
+                <?php if ($error): ?>
+                    <div class="alert alert-danger"
+                        style="padding: 15px; background: #fee2e2; color: #991b1b; border-radius: 8px; margin-bottom: 20px; display: flex; align-items: center; gap: 10px;">
+                        <i class="fas fa-exclamation-circle"></i> <?php echo $error; ?>
+                    </div>
+                <?php endif; ?>
+
                 <div class="eu-card">
-                    <form action="#">
+                    <form action="" method="POST">
                         <!-- Personal Info -->
                         <div class="section-header">
                             <i class="fas fa-user"></i> Información Personal
@@ -236,7 +293,7 @@ $roles = $stmtRoles->fetchAll();
                             <div class="eu-grid">
                                 <div>
                                     <label class="check-container">
-                                        <input type="checkbox" checked>
+                                        <input type="checkbox" name="activo" value="1" <?php echo ($userData['activo'] ?? 1) ? 'checked' : ''; ?>>
                                         Usuario activo
                                     </label>
                                     <p class="hint-text" style="margin-left: 28px;">Usuario habilitado para iniciar

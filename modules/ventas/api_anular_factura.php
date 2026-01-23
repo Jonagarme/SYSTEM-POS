@@ -137,6 +137,10 @@ try {
 
     $pdo->commit();
 
+    // Log Audit
+    require_once '../../includes/audit.php';
+    registrarAuditoria('Ventas', 'ANULAR', 'facturas_venta', $id, "Factura #{$venta['numeroFactura']} anulada (Monto: $venta[total])");
+
     // 7. Enviar a SRI vía Logifact
     $external_res = null;
     $token = LogifactAPI::login();

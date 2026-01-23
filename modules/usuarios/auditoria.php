@@ -171,6 +171,16 @@ $modulos = $stmtModules->fetchAll(PDO::FETCH_COLUMN);
             color: #854d0e;
         }
 
+        .action-editar {
+            background: #f0fdf4;
+            color: #166534;
+        }
+
+        .action-anular {
+            background: #fdf2f8;
+            color: #9d174d;
+        }
+
         .user-tag {
             display: flex;
             align-items: center;
@@ -204,6 +214,76 @@ $modulos = $stmtModules->fetchAll(PDO::FETCH_COLUMN);
             gap: 5px;
             margin-top: 25px;
             padding-bottom: 20px;
+            flex-wrap: wrap;
+        }
+
+        /* Responsive Improvements */
+        @media (max-width: 768px) {
+            .au-header {
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 15px;
+            }
+
+            .au-header h1 {
+                font-size: 1.2rem;
+            }
+
+            .au-filters {
+                grid-template-columns: 1fr;
+                gap: 15px;
+            }
+
+            /* Table Responsive: Card Layout */
+            .au-table thead {
+                display: none;
+            }
+
+            .au-table,
+            .au-table tbody,
+            .au-table tr,
+            .au-table td {
+                display: block;
+                width: 100%;
+            }
+
+            .au-table tr {
+                margin-bottom: 15px;
+                border: 1px solid #e2e8f0;
+                border-radius: 12px;
+                background: #fff;
+                padding: 10px;
+            }
+
+            .au-table td {
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                text-align: right;
+                padding: 8px 10px;
+                border-bottom: 1px solid #f1f5f9;
+                font-size: 0.8rem;
+            }
+
+            .au-table td:last-child {
+                border-bottom: none;
+            }
+
+            .au-table td::before {
+                content: attr(data-label);
+                font-weight: 700;
+                text-align: left;
+                color: #64748b;
+                text-transform: uppercase;
+                font-size: 0.7rem;
+            }
+
+            /* Hide some columns on mobile to save space if needed, 
+               but here we use data-label for all */
+
+            .user-tag {
+                justify-content: flex-end;
+            }
         }
 
         .pg-link {
@@ -270,7 +350,8 @@ $modulos = $stmtModules->fetchAll(PDO::FETCH_COLUMN);
                 <div class="au-header">
                     <h1><i class="fas fa-clipboard-list"></i> Registro de Auditoría</h1>
                     <div style="color: #64748b; font-size: 0.85rem;">
-                        <i class="fas fa-info-circle"></i> Mostrando <?php echo count($logs); ?> de <?php echo number_format($total_records); ?> registros
+                        <i class="fas fa-info-circle"></i> Mostrando <?php echo count($logs); ?> de
+                        <?php echo number_format($total_records); ?> registros
                     </div>
                 </div>
 
@@ -340,10 +421,11 @@ $modulos = $stmtModules->fetchAll(PDO::FETCH_COLUMN);
                                     }
                                     ?>
                                     <tr>
-                                        <td style="font-weight: 500; font-size: 0.8rem; color: #1e293b; white-space: nowrap;">
+                                        <td data-label="Fecha y Hora"
+                                            style="font-weight: 500; font-size: 0.8rem; color: #1e293b; white-space: nowrap;">
                                             <?php echo date('d/m/Y H:i:s', strtotime($log['fecha'])); ?>
                                         </td>
-                                        <td>
+                                        <td data-label="Usuario">
                                             <div class="user-tag">
                                                 <div class="user-avatar-small">
                                                     <?php echo strtoupper(substr($log['usuario'], 0, 1)); ?>
@@ -353,27 +435,27 @@ $modulos = $stmtModules->fetchAll(PDO::FETCH_COLUMN);
                                                 </span>
                                             </div>
                                         </td>
-                                        <td>
+                                        <td data-label="Módulo">
                                             <span style="font-weight: 700; color: #475569;">
                                                 <?php echo htmlspecialchars($log['modulo']); ?>
                                             </span>
                                         </td>
-                                        <td>
+                                        <td data-label="Acción">
                                             <span class="badge-action <?php echo $action_class; ?>">
                                                 <?php echo htmlspecialchars($log['accion']); ?>
                                             </span>
                                         </td>
-                                        <td>
+                                        <td data-label="Entidad">
                                             <span style="color: #64748b; font-size: 0.75rem;">
                                                 <i class="fas fa-database" style="font-size: 0.65rem; margin-right: 4px;"></i>
                                                 <?php echo htmlspecialchars($log['entidad']); ?>
                                                 <?php echo $log['idEntidad'] ? " <span style='color: #94a3b8;'>(ID: {$log['idEntidad']})</span>" : ""; ?>
                                             </span>
                                         </td>
-                                        <td style="max-width: 300px;">
+                                        <td data-label="Descripción" style="max-width: 300px;">
                                             <?php echo htmlspecialchars($log['descripcion']); ?>
                                         </td>
-                                        <td>
+                                        <td data-label="IP / Origen">
                                             <span class="ip-text">
                                                 <?php echo $log['ip'] ?: '127.0.0.1'; ?>
                                             </span>
@@ -391,37 +473,41 @@ $modulos = $stmtModules->fetchAll(PDO::FETCH_COLUMN);
 
                 <!-- Pagination UI -->
                 <?php if ($total_pages > 1): ?>
-                    <?php 
-                        $query_params = $_GET;
-                        unset($query_params['page']);
-                        $base_url = "auditoria.php?" . http_build_query($query_params) . "&page=";
+                    <?php
+                    $query_params = $_GET;
+                    unset($query_params['page']);
+                    $base_url = "auditoria.php?" . http_build_query($query_params) . "&page=";
                     ?>
                     <div class="pagination">
-                        <a href="<?php echo $base_url . ($page - 1); ?>" class="pg-link <?php echo $page <= 1 ? 'disabled' : ''; ?>" title="Anterior">
+                        <a href="<?php echo $base_url . ($page - 1); ?>"
+                            class="pg-link <?php echo $page <= 1 ? 'disabled' : ''; ?>" title="Anterior">
                             <i class="fas fa-chevron-left"></i>
                         </a>
-                        
-                        <?php 
+
+                        <?php
                         $start = max(1, $page - 2);
                         $end = min($total_pages, $page + 2);
-                        
+
                         if ($start > 1) {
-                            echo '<a href="'.$base_url.'1" class="pg-link">1</a>';
-                            if ($start > 2) echo '<span class="pg-text">...</span>';
+                            echo '<a href="' . $base_url . '1" class="pg-link">1</a>';
+                            if ($start > 2)
+                                echo '<span class="pg-text">...</span>';
                         }
-                        
+
                         for ($i = $start; $i <= $end; $i++): ?>
                             <a href="<?php echo $base_url . $i; ?>" class="pg-link <?php echo $page == $i ? 'active' : ''; ?>">
                                 <?php echo $i; ?>
                             </a>
                         <?php endfor; ?>
-                        
+
                         <?php if ($end < $total_pages): ?>
-                            <?php if ($end < $total_pages - 1) echo '<span class="pg-text">...</span>'; ?>
+                            <?php if ($end < $total_pages - 1)
+                                echo '<span class="pg-text">...</span>'; ?>
                             <a href="<?php echo $base_url . $total_pages; ?>" class="pg-link"><?php echo $total_pages; ?></a>
                         <?php endif; ?>
 
-                        <a href="<?php echo $base_url . ($page + 1); ?>" class="pg-link <?php echo $page >= $total_pages ? 'disabled' : ''; ?>" title="Siguiente">
+                        <a href="<?php echo $base_url . ($page + 1); ?>"
+                            class="pg-link <?php echo $page >= $total_pages ? 'disabled' : ''; ?>" title="Siguiente">
                             <i class="fas fa-chevron-right"></i>
                         </a>
                     </div>

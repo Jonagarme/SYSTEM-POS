@@ -45,6 +45,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     $_SESSION['role'] = $user['rol_nombre'] ?? 'Usuario';
                     $_SESSION['idRol'] = $user['idRol'];
 
+                    // Log audit
+                    require_once 'includes/audit.php';
+                    registrarAuditoria('Login', 'LOGIN', 'usuarios', $user['id'], 'Inicio de sesión exitoso');
+
                     header('Location: index.php');
                     exit;
                 } else {

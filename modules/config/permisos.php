@@ -26,6 +26,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['create_permission']))
         $stmt = $pdo->prepare("INSERT INTO permisos_disponibles (modulo, permiso_key, etiqueta, creadoDate) VALUES (?, ?, ?, NOW())");
         $stmt->execute([$mod, $key, $label]);
         $message = "Nuevo permiso '$label' creado correctamente.";
+
+        // Log Audit
+        require_once '../../includes/audit.php';
+        registrarAuditoria('Configuración', 'CREAR', 'permisos_disponibles', $pdo->lastInsertId(), "Nuevo permiso registrado: $label ($key)");
     } catch (Exception $e) {
         $error = "Error al crear permiso: " . $e->getMessage();
     }
@@ -72,6 +76,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_permissions'])) 
 
         $pdo->commit();
         $message = "Permisos actualizados correctamente para el rol seleccionado.";
+
+        // Log Audit
+        require_once '../../includes/audit.php';
+        // Get role name for the log
+        $role_log_name = 'Desconocido';
+        foreach ($roles as $r)
+            if ($r['id'] == $role_id)
+                $role_log_name = $r['nombre'];
+        registrarAuditoria('Configuración', 'EDITAR', 'roles', $role_id, "Permisos actualizados para el rol: $role_log_name");
     } catch (Exception $e) {
         $pdo->rollBack();
         $error = "Error al actualizar permisos: " . $e->getMessage();
@@ -104,7 +117,11 @@ if ($selected_role_id) {
     <link rel="stylesheet" href="../../assets/css/style.css">
     <style>
         .p-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
             margin-bottom: 30px;
+            gap: 20px;
         }
 
         .p-header h1 {
@@ -184,6 +201,7 @@ if ($selected_role_id) {
             margin-bottom: 15px;
             padding-bottom: 8px;
             border-bottom: 2px solid #f1f5f9;
+            flex-wrap: wrap;
         }
 
         .module-group-header i {
@@ -312,6 +330,75 @@ if ($selected_role_id) {
             justify-content: flex-end;
             gap: 10px;
         }
+
+        /* Responsive Improvements */
+        @media (max-width: 992px) {
+            .p-layout {
+                grid-template-columns: 1fr;
+            }
+
+            .roles-list {
+                margin-bottom: 25px;
+            }
+        }
+
+        @media (max-width: 768px) {
+            .p-header {
+                flex-direction: column;
+                gap: 20px;
+            }
+
+            .p-header h1 {
+                font-size: 1.25rem;
+            }
+
+            .p-header .btn-group {
+                width: 100%;
+                flex-direction: column;
+            }
+
+            .perm-table thead {
+                display: none;
+            }
+
+            .perm-table tr {
+                display: block;
+                border: 1px solid #f1f5f9;
+                border-radius: 12px;
+                margin-bottom: 15px;
+                padding: 10px;
+            }
+
+            .perm-table td {
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                border: none;
+                padding: 8px 5px;
+                width: 100% !important;
+                text-align: right;
+            }
+
+            .perm-table td::before {
+                content: attr(data-label);
+                font-weight: 700;
+                color: #64748b;
+                font-size: 0.75rem;
+                text-transform: uppercase;
+            }
+
+            .checkbox-cell {
+                justify-content: flex-end;
+            }
+
+            .p-footer {
+                flex-direction: column-reverse;
+            }
+
+            .p-footer button {
+                width: 100%;
+            }
+        }
     </style>
 </head>
 
@@ -326,13 +413,13 @@ if ($selected_role_id) {
             <?php include $root . 'includes/navbar.php'; ?>
 
             <div class="content-wrapper">
-                <div class="p-header" style="display: flex; justify-content: space-between; align-items: flex-start;">
-                    <div>
+                <div class="p-header">
+                    <div class="p-header-title">
                         <h1><i class="fas fa-user-shield"></i> Roles y Permisos del Sistema</h1>
                         <p style="color: #64748b; margin-top: 5px;">Configura qué acciones puede realizar cada rol de
                             usuario en los diferentes módulos.</p>
                     </div>
-                    <div style="display: flex; gap: 10px;">
+                    <div class="p-header-actions" style="display: flex; gap: 10px; flex-wrap: wrap;">
                         <a href="../usuarios/nuevo_rol.php" class="btn btn-secondary"
                             style="background: #f1f5f9; color: #475569; border: 1px solid #e2e8f0; font-size: 0.85rem; padding: 10px 15px; text-decoration: none; border-radius: 8px; font-weight: 600;">
                             <i class="fas fa-plus-circle"></i> Nuevo Rol
@@ -429,20 +516,21 @@ if ($selected_role_id) {
                                                     $p = $current_perms[$key] ?? ['puede_ver' => 0, 'puede_crear' => 0, 'puede_editar' => 0, 'puede_eliminar' => 0];
                                                     ?>
                                                     <tr class="perm-row-hover">
-                                                        <td class="perm-name"><?php echo $label; ?></td>
-                                                        <td class="checkbox-cell">
+                                                        <td data-label="Acción / Permiso" class="perm-name"><?php echo $label; ?>
+                                                        </td>
+                                                        <td data-label="Ver" class="checkbox-cell">
                                                             <input type="checkbox" name="perm_<?php echo $key; ?>_ver"
                                                                 class="checkbox-custom cb-ver" <?php echo $p['puede_ver'] ? 'checked' : ''; ?>>
                                                         </td>
-                                                        <td class="checkbox-cell">
+                                                        <td data-label="Crear" class="checkbox-cell">
                                                             <input type="checkbox" name="perm_<?php echo $key; ?>_crear"
                                                                 class="checkbox-custom cb-crear" <?php echo $p['puede_crear'] ? 'checked' : ''; ?>>
                                                         </td>
-                                                        <td class="checkbox-cell">
+                                                        <td data-label="Editar" class="checkbox-cell">
                                                             <input type="checkbox" name="perm_<?php echo $key; ?>_editar"
                                                                 class="checkbox-custom cb-editar" <?php echo $p['puede_editar'] ? 'checked' : ''; ?>>
                                                         </td>
-                                                        <td class="checkbox-cell">
+                                                        <td data-label="Eliminar" class="checkbox-cell">
                                                             <input type="checkbox" name="perm_<?php echo $key; ?>_eliminar"
                                                                 class="checkbox-custom cb-eliminar" <?php echo $p['puede_eliminar'] ? 'checked' : ''; ?>>
                                                         </td>

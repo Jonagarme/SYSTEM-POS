@@ -29,6 +29,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         $newId = $pdo->lastInsertId();
 
+        // Log Audit
+        require_once '../../includes/audit.php';
+        registrarAuditoria('Clientes', 'CREAR', 'clientes', $newId, "Nuevo cliente registrado: {$data['nombres']} ({$data['cedula_ruc']})");
+
         echo json_encode([
             'success' => true,
             'id' => $newId,

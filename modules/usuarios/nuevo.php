@@ -7,6 +7,47 @@ require_once '../../includes/db.php';
 
 $current_page = 'usuarios_nuevo';
 
+// Handle form submission
+$message = '';
+$error = '';
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    $nombreUsuario = $_POST['nombreUsuario'] ?? '';
+    $nombreCompleto = $_POST['nombreCompleto'] ?? '';
+    $email = $_POST['email'] ?? '';
+    $password = $_POST['password'] ?? '';
+    $idRol = !empty($_POST['idRol']) ? (int) $_POST['idRol'] : null;
+    $activo = isset($_POST['activo']) ? 1 : 0;
+    $creadoPor = $_SESSION['user_id'] ?? 1;
+
+    try {
+        if (empty($nombreUsuario) || empty($password)) {
+            throw new Exception("Usuario y contraseña son obligatorios.");
+        }
+
+        // Validate unique username
+        $stmtCheck = $pdo->prepare("SELECT id FROM usuarios WHERE nombreUsuario = ? AND anulado = 0");
+        $stmtCheck->execute([$nombreUsuario]);
+        if ($stmtCheck->fetch()) {
+            throw new Exception("El nombre de usuario already exists.");
+        }
+
+        $passwordHash = password_hash($password, PASSWORD_DEFAULT);
+
+        $stmt = $pdo->prepare("INSERT INTO usuarios (nombreUsuario, nombreCompleto, email, contrasenaHash, idRol, activo, creadoPor, creadoDate, anulado) VALUES (?, ?, ?, ?, ?, ?, ?, NOW(), 0)");
+        $stmt->execute([$nombreUsuario, $nombreCompleto, $email, $passwordHash, $idRol, $activo, $creadoPor]);
+
+        $newId = $pdo->lastInsertId();
+
+        // Log Audit
+        require_once '../../includes/audit.php';
+        registrarAuditoria('Usuarios', 'CREAR', 'usuarios', $newId, "Nuevo usuario creado: $nombreUsuario ($nombreCompleto)");
+
+        $message = "Usuario creado correctamente.";
+    } catch (Exception $e) {
+        $error = $e->getMessage();
+    }
+}
+
 // Fetch roles from database
 $stmtRoles = $pdo->query("SELECT id, nombre FROM roles WHERE anulado = 0 ORDER BY nombre ASC");
 $roles = $stmtRoles->fetchAll();
@@ -180,7 +221,7 @@ $roles = $stmtRoles->fetchAll();
 
                         <div style="margin-bottom: 30px;">
                             <label class="check-container">
-                                <input type="checkbox" checked>
+                                <input type="checkbox" name="activo" value="1" checked>
                                 Usuario Activo
                             </label>
                             <p class="hint-text" style="margin-left: 28px;">Usuario habilitado para iniciar sesión</p>

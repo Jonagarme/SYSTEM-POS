@@ -147,6 +147,15 @@ try {
     }
 
     $pdo->commit();
+
+    // Log Audit
+    require_once '../../includes/audit.php';
+    if ($id > 0 && strpos($message, 'actualizado') !== false) {
+        registrarAuditoria('Productos', 'EDITAR', 'productos', $id, "Se actualizó el producto: $nombre (Código: $codigo)");
+    } else {
+        registrarAuditoria('Productos', 'CREAR', 'productos', $id, "Se creó el nuevo producto: $nombre (Código: $codigo)");
+    }
+
     echo json_encode(['status' => 'success', 'message' => $message, 'id' => $id]);
 
 } catch (Exception $e) {

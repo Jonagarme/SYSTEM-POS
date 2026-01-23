@@ -26,11 +26,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $stmt = $pdo->prepare("UPDATE roles SET nombre = ?, descripcion = ?, editadoPor = ?, editadoDate = NOW() WHERE id = ?");
             $stmt->execute([$nombre, $descripcion, $user_id, $role_id]);
             $message = "Rol actualizado correctamente.";
+
+            // Log Audit
+            require_once '../../includes/audit.php';
+            registrarAuditoria('Configuración', 'EDITAR', 'roles', $role_id, "Rol actualizado: $nombre");
         } else {
             $stmt = $pdo->prepare("INSERT INTO roles (nombre, descripcion, creadoPor, creadoDate, anulado) VALUES (?, ?, ?, NOW(), 0)");
             $stmt->execute([$nombre, $descripcion, $user_id]);
             $role_id = $pdo->lastInsertId();
             $message = "Rol creado correctamente.";
+
+            // Log Audit
+            require_once '../../includes/audit.php';
+            registrarAuditoria('Configuración', 'CREAR', 'roles', $role_id, "Nuevo rol creado: $nombre");
+
             // If new, redirect to permissions screen or stay here
             header("Location: ../config/permisos.php?role_id=" . $role_id);
             exit;
@@ -262,12 +271,14 @@ if ($is_edit) {
 
             <div class="content-wrapper">
                 <?php if ($message): ?>
-                    <div class="alert alert-success" style="padding: 15px; background: #dcfce7; color: #15803d; border-radius: 8px; margin-bottom: 20px;">
+                    <div class="alert alert-success"
+                        style="padding: 15px; background: #dcfce7; color: #15803d; border-radius: 8px; margin-bottom: 20px;">
                         <i class="fas fa-check-circle"></i> <?php echo $message; ?>
                     </div>
                 <?php endif; ?>
                 <?php if ($error): ?>
-                    <div class="alert alert-danger" style="padding: 15px; background: #fee2e2; color: #991b1b; border-radius: 8px; margin-bottom: 20px;">
+                    <div class="alert alert-danger"
+                        style="padding: 15px; background: #fee2e2; color: #991b1b; border-radius: 8px; margin-bottom: 20px;">
                         <i class="fas fa-exclamation-circle"></i> <?php echo $error; ?>
                     </div>
                 <?php endif; ?>
@@ -288,15 +299,18 @@ if ($is_edit) {
                                 </div>
                                 <div class="form-group-nr">
                                     <label>Descripción</label>
-                                    <input type="text" name="descripcion" value="<?php echo htmlspecialchars($role_desc); ?>"
+                                    <input type="text" name="descripcion"
+                                        value="<?php echo htmlspecialchars($role_desc); ?>"
                                         placeholder="Breve descripción de las responsabilidades">
                                     <p class="hint">Breve descripción de las responsabilidades</p>
                                 </div>
                             </div>
 
                             <div class="nr-footer">
-                                <a href="roles.php" class="btn btn-secondary" style="padding: 10px 25px; text-decoration: none; display: flex; align-items: center; border: 1px solid #e2e8f0; color: #64748b;">Cancelar</a>
-                                <button type="submit" class="btn btn-primary" style="padding: 10px 30px; background: #2563eb; color: white; border: none; cursor: pointer;">
+                                <a href="roles.php" class="btn btn-secondary"
+                                    style="padding: 10px 25px; text-decoration: none; display: flex; align-items: center; border: 1px solid #e2e8f0; color: #64748b;">Cancelar</a>
+                                <button type="submit" class="btn btn-primary"
+                                    style="padding: 10px 30px; background: #2563eb; color: white; border: none; cursor: pointer;">
                                     <i class="fas fa-save"></i>
                                     <?php echo $is_edit ? 'Actualizar Rol' : 'Crear Rol y Configurar Permisos'; ?>
                                 </button>
