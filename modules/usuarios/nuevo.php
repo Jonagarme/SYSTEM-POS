@@ -6,6 +6,10 @@ session_start();
 require_once '../../includes/db.php';
 
 $current_page = 'usuarios_nuevo';
+
+// Fetch roles from database
+$stmtRoles = $pdo->query("SELECT id, nombre FROM roles WHERE anulado = 0 ORDER BY nombre ASC");
+$roles = $stmtRoles->fetchAll();
 ?>
 <!DOCTYPE html>
 <html lang="es">
@@ -132,29 +136,36 @@ $current_page = 'usuarios_nuevo';
                         <div class="nu-grid">
                             <div class="nu-form-group">
                                 <label>Nombre de Usuario <span>*</span></label>
-                                <input type="text" class="form-control" placeholder="Ingrese el usuario">
+                                <input type="text" name="nombreUsuario" class="form-control"
+                                    placeholder="Ingrese el usuario" required>
                                 <p class="hint-text">Usuario único para iniciar sesión</p>
                             </div>
                             <div class="nu-form-group">
                                 <label>Nombre Completo <span>*</span></label>
-                                <input type="text" class="form-control" placeholder="Ingrese el nombre completo">
+                                <input type="text" name="nombreCompleto" class="form-control"
+                                    placeholder="Ingrese el nombre completo" required>
                             </div>
 
                             <div class="nu-form-group">
                                 <label>Email <span>*</span></label>
-                                <input type="email" class="form-control" placeholder="ejemplo@correo.com">
+                                <input type="email" name="email" class="form-control" placeholder="ejemplo@correo.com"
+                                    required>
                             </div>
                             <div class="nu-form-group">
                                 <label>Contraseña <span>*</span></label>
-                                <input type="password" class="form-control" placeholder="••••••••">
+                                <input type="password" name="password" class="form-control" placeholder="••••••••"
+                                    required>
                             </div>
 
                             <div class="nu-form-group">
                                 <label>Rol</label>
-                                <select class="form-control">
-                                    <option>Sin rol asignado</option>
-                                    <option>Administrador</option>
-                                    <option>Vendedor</option>
+                                <select class="form-control" name="idRol">
+                                    <option value="">Sin rol asignado</option>
+                                    <?php foreach ($roles as $rol): ?>
+                                        <option value="<?php echo $rol['id']; ?>">
+                                            <?php echo htmlspecialchars($rol['nombre']); ?>
+                                        </option>
+                                    <?php endforeach; ?>
                                 </select>
                             </div>
                             <div class="nu-form-group">

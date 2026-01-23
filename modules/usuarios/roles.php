@@ -7,12 +7,21 @@ require_once '../../includes/db.php';
 
 $current_page = 'usuarios_roles';
 
-// Mock data
-$roles = [
-    ['nombre' => 'Administrador', 'desc' => 'Acceso total al sistema', 'users' => 4, 'perms' => 36, 'created' => '04/08/2025 19:20'],
-    ['nombre' => 'Cajero', 'desc' => 'Acceso al punto de venta y cierre de caja', 'users' => 0, 'perms' => 8, 'created' => '04/08/2025 19:20'],
-    ['nombre' => 'Farmacéutico', 'desc' => 'Acceso a inventario, compras y kardex', 'users' => 0, 'perms' => 15, 'created' => '04/08/2025 19:20'],
-];
+// Fetch real data from database
+try {
+    // Basic role info + user count + permissions count
+    $stmt = $pdo->query("
+        SELECT r.*, 
+        (SELECT COUNT(*) FROM usuarios WHERE idRol = r.id) as users_count,
+        (SELECT COUNT(*) FROM rol_permisos WHERE idRol = r.id) as perms_count
+        FROM roles r 
+        WHERE r.anulado = 0
+    ");
+    $roles = $stmt->fetchAll();
+} catch (Exception $e) {
+    $roles = [];
+    $error = $e->getMessage();
+}
 ?>
 <!DOCTYPE html>
 <html lang="es">
@@ -259,21 +268,27 @@ $roles = [
                                         <?php echo $r['nombre']; ?>
                                     </td>
                                     <td data-label="Descripción" style="color: #64748b;">
-                                        <?php echo $r['desc']; ?>
+                                        <?php echo htmlspecialchars($r['descripcion']); ?>
                                     </td>
                                     <td data-label="Usuarios" style="text-align: center;"><span class="badge-users">
-                                            <?php echo $r['users']; ?> usuarios
+                                            <?php echo $r['users_count']; ?> usuarios
                                         </span></td>
                                     <td data-label="Permisos" style="text-align: center;"><span class="badge-perms">
-                                            <?php echo $r['perms']; ?> permisos
+                                            <?php echo $r['perms_count']; ?> permisos
                                         </span></td>
                                     <td data-label="Creado" style="color: #64748b; font-size: 0.8rem;">
-                                        <?php echo $r['created']; ?>
+                                        <?php echo date('d/m/Y H:i', strtotime($r['creadoDate'])); ?>
                                     </td>
                                     <td data-label="Acciones">
-                                        <a href="editar_rol.php?nombre=<?php echo $r['nombre']; ?>" class="btn-edit-role">
-                                            <i class="fas fa-edit"></i> Editar
-                                        </a>
+                                        <div style="display: flex; gap: 8px;">
+                                            <a href="editar_rol.php?id=<?php echo $r['id']; ?>" class="btn-edit-role">
+                                                <i class="fas fa-edit"></i> Editar
+                                            </a>
+                                            <a href="../../modules/config/permisos.php?role_id=<?php echo $r['id']; ?>"
+                                                class="btn-edit-role" style="border-color: #059669; color: #059669;">
+                                                <i class="fas fa-shield-alt"></i> Permisos
+                                            </a>
+                                        </div>
                                     </td>
                                 </tr>
                             <?php endforeach; ?>

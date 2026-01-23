@@ -6,7 +6,25 @@ session_start();
 require_once '../../includes/db.php';
 
 $current_page = 'usuarios_index';
-$user = $_GET['user'] ?? 'admin1';
+$user_id = $_GET['id'] ?? null;
+
+if (!$user_id) {
+    header("Location: index.php");
+    exit;
+}
+
+// Fetch user data
+$stmt = $pdo->prepare("SELECT * FROM usuarios WHERE id = ?");
+$stmt->execute([$user_id]);
+$userData = $stmt->fetch();
+
+if (!$userData) {
+    die("Usuario no encontrado.");
+}
+
+// Fetch roles from database
+$stmtRoles = $pdo->query("SELECT id, nombre FROM roles WHERE anulado = 0 ORDER BY nombre ASC");
+$roles = $stmtRoles->fetchAll();
 ?>
 <!DOCTYPE html>
 <html lang="es">
@@ -164,22 +182,29 @@ $user = $_GET['user'] ?? 'admin1';
                             <div class="eu-grid">
                                 <div class="eu-form-group">
                                     <label>Nombre de usuario <span>*</span></label>
-                                    <input type="text" class="form-control" value="<?php echo $user; ?>">
+                                    <input type="text" class="form-control" name="nombreUsuario"
+                                        value="<?php echo htmlspecialchars($userData['nombreUsuario']); ?>">
                                     <p class="hint-text">Usuario único para iniciar sesión</p>
                                 </div>
                                 <div class="eu-form-group">
                                     <label>Nombre completo <span>*</span></label>
-                                    <input type="text" class="form-control" value="Usuario Admin1">
+                                    <input type="text" class="form-control" name="nombreCompleto"
+                                        value="<?php echo htmlspecialchars($userData['nombreCompleto']); ?>">
                                 </div>
                                 <div class="eu-form-group">
                                     <label>Correo electrónico <span>*</span></label>
-                                    <input type="email" class="form-control" value="admin1@gmial.com">
+                                    <input type="email" class="form-control" name="email"
+                                        value="<?php echo htmlspecialchars($userData['email']); ?>">
                                 </div>
                                 <div class="eu-form-group">
                                     <label>Rol <span>*</span></label>
-                                    <select class="form-control">
-                                        <option selected>Administrador</option>
-                                        <option>Vendedor</option>
+                                    <select class="form-control" name="idRol">
+                                        <option value="">Sin rol asignado</option>
+                                        <?php foreach ($roles as $rol): ?>
+                                            <option value="<?php echo $rol['id']; ?>" <?php echo ($userData['idRol'] == $rol['id']) ? 'selected' : ''; ?>>
+                                                <?php echo htmlspecialchars($rol['nombre']); ?>
+                                            </option>
+                                        <?php endforeach; ?>
                                     </select>
                                 </div>
                             </div>

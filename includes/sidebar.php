@@ -160,6 +160,7 @@ $current_page = $current_page ?? '';
                         class="fas fa-chevron-right arrow"></i></a>
                 <ul class="submenu">
                     <li><a href="<?php echo $root; ?>modules/config/configuracion.php">Empresa</a></li>
+                    <li><a href="<?php echo $root; ?>modules/config/permisos.php">Roles y Permisos</a></li>
                     <li><a href="<?php echo $root; ?>modules/config/puntos_emision.php">Puntos de Emisión</a></li>
                     <li><a href="<?php echo $root; ?>modules/config/impuestos.php">Impuestos</a></li>
                 </ul>

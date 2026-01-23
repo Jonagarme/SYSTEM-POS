@@ -9,12 +9,22 @@ $current_page = 'usuarios_index';
 
 // Fetch users from both 'usuarios' (new system) and 'auth_user' (original system)
 $stmt = $pdo->query("
-    SELECT id, nombreUsuario, nombreCompleto, email, activo, creadoDate, 'Sistema' as origen FROM usuarios WHERE anulado = 0
+    SELECT u.id, u.nombreUsuario, u.nombreCompleto, u.email, u.activo, u.creadoDate, 
+           r.nombre as nombreRol, 'Sistema' as origen 
+    FROM usuarios u
+    LEFT JOIN roles r ON u.idRol = r.id
+    WHERE u.anulado = 0
     UNION
-    SELECT id, username as nombreUsuario, CONCAT(first_name, ' ', last_name) as nombreCompleto, email, is_active as activo, last_login as creadoDate, 'Legacy' as origen FROM auth_user
+    SELECT id, username as nombreUsuario, CONCAT(first_name, ' ', last_name) as nombreCompleto, email, is_active as activo, last_login as creadoDate, 
+           'Legacy' as nombreRol, 'Legacy' as origen 
+    FROM auth_user
     ORDER BY creadoDate DESC
 ");
 $usuarios = $stmt->fetchAll();
+
+// Fetch roles for the filter
+$stmtRoles = $pdo->query("SELECT id, nombre FROM roles WHERE anulado = 0 ORDER BY nombre ASC");
+$roles = $stmtRoles->fetchAll();
 ?>
 <!DOCTYPE html>
 <html lang="es">
@@ -282,8 +292,13 @@ $usuarios = $stmt->fetchAll();
                     </div>
                     <div>
                         <label>Rol</label>
-                        <select class="form-control">
-                            <option>Todos los roles</option>
+                        <select class="form-control" name="rol">
+                            <option value="">Todos los roles</option>
+                            <?php foreach ($roles as $rol): ?>
+                                <option value="<?php echo $rol['id']; ?>"><?php echo htmlspecialchars($rol['nombre']); ?>
+                                </option>
+                            <?php endforeach; ?>
+                            <option value="Legacy">Legacy (Django)</option>
                         </select>
                     </div>
                     <div>
@@ -333,7 +348,7 @@ $usuarios = $stmt->fetchAll();
                                     <td data-label="Rol">
                                         <span class="badge-role"
                                             style="background: <?php echo $u['origen'] == 'Legacy' ? '#64748b' : ''; ?>;">
-                                            <?php echo $u['origen'] == 'Legacy' ? 'Legacy (Django)' : 'Usuario'; ?>
+                                            <?php echo htmlspecialchars($u['nombreRol'] ?: 'Sin Rol'); ?>
                                         </span>
                                     </td>
                                     <td data-label="Estado"><span class="badge-status-u"

@@ -6,29 +6,50 @@ session_start();
 require_once '../../includes/db.php';
 
 $current_page = 'usuarios_roles';
-$is_edit = isset($_GET['nombre']);
-$role_name = $is_edit ? $_GET['nombre'] : "";
-$role_desc = $is_edit ? "Acceso total al sistema" : "";
+$current_page = 'usuarios_roles';
+$is_edit = isset($_GET['id']);
+$role_id = $is_edit ? (int) $_GET['id'] : 0;
 
-$modules = [
-    [
-        'id' => 'prod',
-        'name' => 'Productos',
-        'icon' => 'fas fa-box',
-        'perms' => 4,
-        'open' => true,
-        'actions' => [
-            ['name' => 'Ver lista de productos', 'checked' => true],
-            ['name' => 'Crear productos', 'checked' => true],
-            ['name' => 'Editar productos', 'checked' => true],
-            ['name' => 'Eliminar productos', 'checked' => true],
-        ]
-    ],
-    ['id' => 'vent', 'name' => 'Ventas', 'icon' => 'fas fa-shopping-cart', 'perms' => 3, 'open' => false, 'actions' => []],
-    ['id' => 'caja', 'name' => 'Caja', 'icon' => 'fas fa-cash-register', 'perms' => 3, 'open' => false, 'actions' => []],
-    ['id' => 'clie', 'name' => 'Clientes', 'icon' => 'fas fa-users', 'perms' => 3, 'open' => false, 'actions' => []],
-    ['id' => 'inv', 'name' => 'Inventario', 'icon' => 'fas fa-warehouse', 'perms' => 5, 'open' => false, 'actions' => []],
-];
+$role_name = "";
+$role_desc = "";
+$message = "";
+$error = "";
+
+// Handle submission
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    $nombre = $_POST['nombre'] ?? '';
+    $descripcion = $_POST['descripcion'] ?? '';
+    $user_id = $_SESSION['user_id'] ?? 1;
+
+    try {
+        if ($is_edit) {
+            $stmt = $pdo->prepare("UPDATE roles SET nombre = ?, descripcion = ?, editadoPor = ?, editadoDate = NOW() WHERE id = ?");
+            $stmt->execute([$nombre, $descripcion, $user_id, $role_id]);
+            $message = "Rol actualizado correctamente.";
+        } else {
+            $stmt = $pdo->prepare("INSERT INTO roles (nombre, descripcion, creadoPor, creadoDate, anulado) VALUES (?, ?, ?, NOW(), 0)");
+            $stmt->execute([$nombre, $descripcion, $user_id]);
+            $role_id = $pdo->lastInsertId();
+            $message = "Rol creado correctamente.";
+            // If new, redirect to permissions screen or stay here
+            header("Location: ../config/permisos.php?role_id=" . $role_id);
+            exit;
+        }
+    } catch (Exception $e) {
+        $error = "Error: " . $e->getMessage();
+    }
+}
+
+// Fetch role data if editing
+if ($is_edit) {
+    $stmt = $pdo->prepare("SELECT * FROM roles WHERE id = ?");
+    $stmt->execute([$role_id]);
+    $role = $stmt->fetch();
+    if ($role) {
+        $role_name = $role['nombre'];
+        $role_desc = $role['descripcion'];
+    }
+}
 ?>
 <!DOCTYPE html>
 <html lang="es">
@@ -240,86 +261,47 @@ $modules = [
             <?php include $root . 'includes/navbar.php'; ?>
 
             <div class="content-wrapper">
+                <?php if ($message): ?>
+                    <div class="alert alert-success" style="padding: 15px; background: #dcfce7; color: #15803d; border-radius: 8px; margin-bottom: 20px;">
+                        <i class="fas fa-check-circle"></i> <?php echo $message; ?>
+                    </div>
+                <?php endif; ?>
+                <?php if ($error): ?>
+                    <div class="alert alert-danger" style="padding: 15px; background: #fee2e2; color: #991b1b; border-radius: 8px; margin-bottom: 20px;">
+                        <i class="fas fa-exclamation-circle"></i> <?php echo $error; ?>
+                    </div>
+                <?php endif; ?>
+
                 <div class="nr-card">
                     <div class="nr-header">
                         <i class="fas <?php echo $is_edit ? 'fa-user-edit' : 'fa-plus-circle'; ?>"></i>
-                        <?php echo $is_edit ? "Editar Rol: " . $role_name : "Crear Nuevo Rol"; ?>
+                        <?php echo $is_edit ? "Editar Rol: " . htmlspecialchars($role_name) : "Crear Nuevo Rol"; ?>
                     </div>
                     <div class="nr-body">
-                        <div class="nr-grid-info">
-                            <div class="form-group-nr">
-                                <label>Nombre del Rol <span>*</span></label>
-                                <input type="text" value="<?php echo $role_name; ?>"
-                                    placeholder="Ej: Farmacéutico, Cajero, Vendedor">
-                                <p class="hint">Ej: Farmacéutico, Cajero, Vendedor</p>
-                            </div>
-                            <div class="form-group-nr">
-                                <label>Descripción</label>
-                                <input type="text" value="<?php echo $role_desc; ?>"
-                                    placeholder="Breve descripción de las responsabilidades">
-                                <p class="hint">Breve descripción de las responsabilidades</p>
-                            </div>
-                        </div>
-
-                        <div class="nr-perms-title">
-                            <i class="fas fa-lock"></i> Permisos del Rol
-                        </div>
-                        <p class="nr-perms-hint">Seleccione los módulos y acciones que podrá realizar este rol</p>
-
-                        <div class="nr-accordion">
-                            <?php foreach ($modules as $m): ?>
-                                <div class="module-section">
-                                    <div class="module-header <?php echo $m['open'] ? 'active' : ''; ?>"
-                                        onclick="toggleModule('<?php echo $m['id']; ?>')">
-                                        <div class="module-title">
-                                            <i class="<?php echo $m['icon']; ?>"></i>
-                                            <span>
-                                                <?php echo $m['name']; ?>
-                                            </span>
-                                            <span class="module-badge">
-                                                <?php echo $m['perms']; ?>
-                                                <?php echo $m['perms'] == 1 ? 'permiso' : 'permisos'; ?>
-                                            </span>
-                                        </div>
-                                        <i class="fas fa-chevron-<?php echo $m['open'] ? 'up' : 'down'; ?> arrow-icon"
-                                            id="arrow-<?php echo $m['id']; ?>"></i>
-                                    </div>
-                                    <div class="module-content <?php echo $m['open'] ? 'active' : ''; ?>"
-                                        id="content-<?php echo $m['id']; ?>">
-                                        <?php if (!empty($m['actions'])): ?>
-                                            <?php foreach ($m['actions'] as $act): ?>
-                                                <div class="perm-row">
-                                                    <div class="perm-main">
-                                                        <input type="checkbox" <?php echo ($is_edit && $act['checked']) ? 'checked' : ''; ?> style="width: 16px; height: 16px;">
-                                                        <span>
-                                                            <?php echo $act['name']; ?>
-                                                        </span>
-                                                    </div>
-                                                    <div class="perm-actions">
-                                                        <label class="action-check"><input type="checkbox" <?php echo ($is_edit && $act['checked']) ? 'checked' : ''; ?>> Ver</label>
-                                                        <label class="action-check"><input type="checkbox" <?php echo ($is_edit && $act['checked']) ? 'checked' : ''; ?>> Crear</label>
-                                                        <label class="action-check"><input type="checkbox" <?php echo ($is_edit && $act['checked']) ? 'checked' : ''; ?>> Editar</label>
-                                                        <label class="action-check"><input type="checkbox" <?php echo ($is_edit && $act['checked']) ? 'checked' : ''; ?>> Eliminar</label>
-                                                    </div>
-                                                </div>
-                                            <?php endforeach; ?>
-                                        <?php else: ?>
-                                            <div style="padding: 20px; text-align: center; color: #94a3b8; font-size: 0.85rem;">
-                                                No hay permisos específicos cargados para este módulo
-                                            </div>
-                                        <?php endif; ?>
-                                    </div>
+                        <form action="" method="POST">
+                            <div class="nr-grid-info">
+                                <div class="form-group-nr">
+                                    <label>Nombre del Rol <span>*</span></label>
+                                    <input type="text" name="nombre" value="<?php echo htmlspecialchars($role_name); ?>"
+                                        placeholder="Ej: Farmacéutico, Cajero, Vendedor" required>
+                                    <p class="hint">Ej: Farmacéutico, Cajero, Vendedor</p>
                                 </div>
-                            <?php endforeach; ?>
-                        </div>
+                                <div class="form-group-nr">
+                                    <label>Descripción</label>
+                                    <input type="text" name="descripcion" value="<?php echo htmlspecialchars($role_desc); ?>"
+                                        placeholder="Breve descripción de las responsabilidades">
+                                    <p class="hint">Breve descripción de las responsabilidades</p>
+                                </div>
+                            </div>
 
-                        <div class="nr-footer">
-                            <a href="roles.php" class="btn btn-secondary" style="padding: 10px 25px;">Cancelar</a>
-                            <button class="btn btn-primary" style="padding: 10px 30px; background: #2563eb;">
-                                <i class="fas fa-save"></i>
-                                <?php echo $is_edit ? 'Actualizar Rol' : 'Crear Rol'; ?>
-                            </button>
-                        </div>
+                            <div class="nr-footer">
+                                <a href="roles.php" class="btn btn-secondary" style="padding: 10px 25px; text-decoration: none; display: flex; align-items: center; border: 1px solid #e2e8f0; color: #64748b;">Cancelar</a>
+                                <button type="submit" class="btn btn-primary" style="padding: 10px 30px; background: #2563eb; color: white; border: none; cursor: pointer;">
+                                    <i class="fas fa-save"></i>
+                                    <?php echo $is_edit ? 'Actualizar Rol' : 'Crear Rol y Configurar Permisos'; ?>
+                                </button>
+                            </div>
+                        </form>
                     </div>
                 </div>
             </div>
