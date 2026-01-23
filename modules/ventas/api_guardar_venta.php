@@ -96,17 +96,14 @@ try {
 
             // Registrar movimiento en kardex
             $stmtKardex = $pdo->prepare("INSERT INTO kardex_movimientos 
-                (idProducto, tipoMovimiento, cantidad, ingreso, egreso, saldo, precio, detalle, numeroDocumento, fecha) 
-                VALUES (?, 'VENTA', ?, 0, ?, ?, ?, ?, ?, NOW())");
+                (idProducto, tipoMovimiento, ingreso, egreso, saldo, detalle, fecha) 
+                VALUES (?, 'VENTA', 0, ?, ?, ?, NOW())");
 
             $stmtKardex->execute([
                 $idProducto,
                 $det['cantidad'],
-                $det['cantidad'],
                 $saldoActual,
-                $det['precioUnitario'],
-                'Venta - ' . $det['description'],
-                $numFactura
+                'Venta - ' . $det['description']
             ]);
         }
     }

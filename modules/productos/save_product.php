@@ -141,8 +141,8 @@ try {
 
         // Kardex inicial
         if ($stock_actual > 0) {
-            $stmt_kardex = $pdo->prepare("INSERT INTO kardex_movimientos (idProducto, tipoMovimiento, cantidad, detalle, fecha) VALUES (?, 'INGRESO', ?, 'Saldo Inicial/Creación', NOW())");
-            $stmt_kardex->execute([$id, $stock_actual]);
+            $stmt_kardex = $pdo->prepare("INSERT INTO kardex_movimientos (idProducto, tipoMovimiento, ingreso, saldo, detalle, fecha) VALUES (?, 'INGRESO', ?, ?, 'Saldo Inicial/Creación', NOW())");
+            $stmt_kardex->execute([$id, $stock_actual, $stock_actual]);
         }
     }
 
