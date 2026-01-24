@@ -281,6 +281,7 @@ $metodos_pago = [
             .summary-stats {
                 grid-template-columns: repeat(2, 1fr);
             }
+
             .report-grid {
                 grid-template-columns: 1fr;
             }
@@ -289,48 +290,81 @@ $metodos_pago = [
         @media (max-width: 768px) {
             .report-header-banner {
                 flex-direction: column;
-                align-items: flex-start;
+                align-items: center;
+                text-align: center;
                 gap: 20px;
-                padding: 20px;
+                padding: 25px 15px;
             }
 
             .report-header-banner p {
-                margin-left: 0;
+                margin: 8px 0 0 0;
+            }
+
+            .report-header-banner .banner-actions {
+                width: 100%;
+                justify-content: center;
+                flex-wrap: wrap;
+            }
+
+            .report-header-banner .btn {
+                flex: 1;
+                min-width: 140px;
+                justify-content: center;
             }
 
             .date-filter-row {
                 flex-direction: column;
-                gap: 15px;
-                align-items: flex-start;
+                gap: 20px;
+                padding: 20px 15px;
+                align-items: stretch;
             }
 
             .filter-group {
+                display: flex;
+                flex-direction: row;
                 flex-wrap: wrap;
+                justify-content: center;
+                width: 100%;
+                gap: 10px;
+            }
+
+            .filter-group.form-inline {
+                flex-direction: column;
+                align-items: stretch;
+            }
+
+            .filter-group .date-inputs {
+                display: flex;
+                gap: 10px;
+                align-items: center;
                 width: 100%;
             }
 
             .filter-group input[type="date"] {
                 flex: 1;
-                min-width: 120px;
+                width: auto !important;
+                /* Override inline styles */
             }
 
             .summary-stats {
                 grid-template-columns: 1fr;
+                gap: 15px;
+            }
+
+            .pos-panel {
+                padding: 15px !important;
             }
 
             .table-responsive-container {
-                width: 100%;
-                overflow-x: auto;
-                -webkit-overflow-scrolling: touch;
-                border-radius: 12px;
+                margin: 0 -15px;
+                width: calc(100% + 30px);
+                border-radius: 0;
             }
 
-            .consolidated-table {
-                min-width: 600px;
-            }
-
-            .report-grid {
-                gap: 15px;
+            .consolidated-table th,
+            .consolidated-table td {
+                padding: 12px 10px;
+                font-size: 0.8rem;
             }
         }
     </style>
@@ -352,7 +386,7 @@ $metodos_pago = [
                         <h1><i class="fas fa-chart-pie"></i> Consolidado de Ventas</h1>
                         <p>Resumen detallado de ingresos y movimientos comerciales</p>
                     </div>
-                    <div style="display: flex; gap: 10px;">
+                    <div class="banner-actions" style="display: flex; gap: 10px;">
                         <button class="btn btn-outline"
                             style="background: rgba(255,255,255,0.1); border-color: rgba(255,255,255,0.3); color: white;">
                             <i class="fas fa-file-pdf"></i> Exportar PDF
@@ -374,15 +408,17 @@ $metodos_pago = [
                             class="btn-period <?php echo ($_GET['fecha_inicio'] ?? '') == date('Y-m-01') ? 'active' : ''; ?>">Este
                             Mes</a>
                     </div>
-                    <form class="filter-group" method="GET">
+                    <form class="filter-group form-inline" method="GET">
                         <label style="font-size: 0.8rem; font-weight: 600; color: #64748b;">Rango personalizado:</label>
-                        <input type="date" name="fecha_inicio" class="form-control"
-                            style="width: 150px; padding: 6px 10px;" value="<?php echo $fecha_inicio; ?>">
-                        <span style="color: #cbd5e1;">-</span>
-                        <input type="date" name="fecha_fin" class="form-control"
-                            style="width: 150px; padding: 6px 10px;" value="<?php echo $fecha_fin; ?>">
-                        <button type="submit" class="btn btn-primary" style="padding: 6px 15px;"><i
-                                class="fas fa-sync-alt"></i></button>
+                        <div class="date-inputs">
+                            <input type="date" name="fecha_inicio" class="form-control"
+                                style="width: 150px; padding: 6px 10px;" value="<?php echo $fecha_inicio; ?>">
+                            <span style="color: #cbd5e1;">-</span>
+                            <input type="date" name="fecha_fin" class="form-control"
+                                style="width: 150px; padding: 6px 10px;" value="<?php echo $fecha_fin; ?>">
+                            <button type="submit" class="btn btn-primary" style="padding: 6px 15px;"><i
+                                    class="fas fa-sync-alt"></i></button>
+                        </div>
                     </form>
                 </div>
 
@@ -430,7 +466,8 @@ $metodos_pago = [
                                             <td><?php echo $c['ventas']; ?></td>
                                             <td>$ <?php echo number_format($c['subtotal'], 2); ?></td>
                                             <td>$ <?php echo number_format($c['iva'], 2); ?></td>
-                                            <td style="font-weight: 700;">$ <?php echo number_format($c['total'], 2); ?></td>
+                                            <td style="font-weight: 700;">$ <?php echo number_format($c['total'], 2); ?>
+                                            </td>
                                         </tr>
                                     <?php endforeach; ?>
                                     <tr>
@@ -459,7 +496,8 @@ $metodos_pago = [
                                     <div class="method-value">
                                         $ <?php echo number_format($m['monto'], 2); ?>
                                         <div style="font-size: 0.7rem; color: #94a3b8; font-weight: 400;">
-                                            <?php echo $m['porc']; ?>% del total</div>
+                                            <?php echo $m['porc']; ?>% del total
+                                        </div>
                                     </div>
                                 </div>
                             <?php endforeach; ?>
