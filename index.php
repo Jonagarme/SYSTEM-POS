@@ -274,6 +274,7 @@ $_SESSION['role'] = "Administrador";
 
         // Poll every 10 seconds
         setInterval(refreshDashboardStats, 10000);
+        refreshDashboardStats(); // Ejecutar inmediatamente al cargar la página
     </script>
 </body>
 
