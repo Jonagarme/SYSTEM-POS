@@ -5,12 +5,30 @@
 session_start();
 require_once '../../includes/db.php';
 
-$current_page = 'caja_estado';
+// 1. Buscar la sesión de caja abierta
+$stmt = $pdo->query("SELECT c.*, ca.nombre as caja_nombre, u.nombreCompleto as usuario_nombre 
+                     FROM cierres_caja c 
+                     LEFT JOIN cajas ca ON c.idCaja = ca.id 
+                     LEFT JOIN usuarios u ON c.idUsuarioApertura = u.id 
+                     WHERE c.estado = 'ABIERTA' 
+                     ORDER BY c.fechaApertura DESC 
+                     LIMIT 1");
+$sesion = $stmt->fetch();
 
-// Mock expected data
-$caja_nombre = "CAJA SECUNDARIA";
-$usuario = "Usuario 3";
-$saldo_esperado = 150.50; // Example system balance
+if (!$sesion) {
+    header("Location: estado.php?error=no_session");
+    exit;
+}
+
+// 2. Calcular saldo esperado (Sistema)
+// Saldo Inicial + Ventas - Gastos (si los hubiera)
+$stmtV = $pdo->prepare("SELECT SUM(total) as total_ventas FROM facturas_venta WHERE idCierreCaja = ? AND anulado = 0");
+$stmtV->execute([$sesion['id']]);
+$total_ventas = $stmtV->fetch()['total_ventas'] ?? 0.00;
+
+$saldo_esperado = $sesion['saldoInicial'] + $total_ventas;
+
+$current_page = 'caja_estado';
 ?>
 <!DOCTYPE html>
 <html lang="es">
@@ -245,23 +263,23 @@ $saldo_esperado = 150.50; // Example system balance
             <?php include $root . 'includes/navbar.php'; ?>
 
             <div class="content-wrapper">
-                <div class="arqueo-container">
+                <form id="form-cierre" action="procesar_cierre.php" method="POST" class="arqueo-container">
+                    <input type="hidden" name="id_sesion" value="<?php echo $sesion['id']; ?>">
+                    <input type="hidden" name="total_fisico" id="total-fisico-input" value="0">
+                    <input type="hidden" name="total_sistema" value="<?php echo $saldo_esperado; ?>">
+
                     <div class="arqueo-header">
                         <div>
                             <h1><i class="fas fa-calculator"></i> Arqueo de Cierre</h1>
                             <p style="color: #64748b; font-size: 0.85rem; margin-top: 5px;">
-                                Caja: <strong>
-                                    <?php echo $caja_nombre; ?>
-                                </strong> | Usuario: <strong>
-                                    <?php echo $usuario; ?>
-                                </strong>
+                                Caja: <strong><?php echo htmlspecialchars($sesion['caja_nombre']); ?></strong> |
+                                Usuario: <strong><?php echo htmlspecialchars($sesion['usuario_nombre']); ?></strong>
                             </p>
                         </div>
                         <a href="estado.php" class="btn-cancel">Cancelar Cierre</a>
                     </div>
 
                     <div class="arqueo-grid">
-                        <!-- Left Column: Denominations -->
                         <div class="panel-arqueo">
                             <div class="panel-header-count">
                                 <span>Conteo Físico de Efectivo</span>
@@ -269,24 +287,21 @@ $saldo_esperado = 150.50; // Example system balance
                             </div>
                             <div class="panel-body-count">
                                 <div class="denominations-grid">
-                                    <!-- Bills Column -->
                                     <div class="denom-group">
                                         <h4>Billetes</h4>
                                         <?php
                                         $billetes = [100, 50, 20, 10, 5, 2, 1];
                                         foreach ($billetes as $b): ?>
                                             <div class="denom-row">
-                                                <div class="denom-label">$
-                                                    <?php echo $b; ?>
-                                                </div>
-                                                <input type="number" class="form-control denom-input" value="0" min="0"
+                                                <div class="denom-label">$ <?php echo $b; ?> </div>
+                                                <input type="number" class="form-control denom-input"
+                                                    name="bill_<?php echo $b; ?>" value="0" min="0"
                                                     onchange="calculateTotal()">
                                                 <div class="denom-total" id="total-b-<?php echo $b; ?>">$ 0.00</div>
                                             </div>
                                         <?php endforeach; ?>
                                     </div>
 
-                                    <!-- Coins Column -->
                                     <div class="denom-group">
                                         <h4>Monedas</h4>
                                         <?php
@@ -300,11 +315,10 @@ $saldo_esperado = 150.50; // Example system balance
                                         ];
                                         foreach ($monedas as $m): ?>
                                             <div class="denom-row">
-                                                <div class="denom-label">
-                                                    <?php echo $m['l']; ?>
-                                                </div>
-                                                <input type="number" class="form-control denom-input" value="0" min="0"
-                                                    onchange="calculateTotal()">
+                                                <div class="denom-label"><?php echo $m['l']; ?></div>
+                                                <input type="number" class="form-control denom-input"
+                                                    name="coin_<?php echo str_replace('.', '_', $m['v']); ?>" value="0"
+                                                    min="0" onchange="calculateTotal()">
                                                 <div class="denom-total"
                                                     id="total-m-<?php echo str_replace('.', '_', $m['v']); ?>">$ 0.00</div>
                                             </div>
@@ -314,12 +328,10 @@ $saldo_esperado = 150.50; // Example system balance
                             </div>
                         </div>
 
-                        <!-- Right Column: Summary & Total -->
                         <div class="resumen-arqueo">
                             <div class="stat-box stat-highlight">
                                 <span class="lbl">Saldo Esperado (Sistema)</span>
-                                <div class="val" id="saldo-sistema">$
-                                    <?php echo number_format($saldo_esperado, 2); ?>
+                                <div class="val" id="saldo-sistema">$ <?php echo number_format($saldo_esperado, 2); ?>
                                 </div>
                             </div>
 
@@ -330,7 +342,8 @@ $saldo_esperado = 150.50; // Example system balance
 
                             <div class="stat-box stat-diff">
                                 <span class="lbl">Diferencia / Descuadre</span>
-                                <div class="val" id="diferencia-total">$ -150.50</div>
+                                <div class="val" id="diferencia-total">$
+                                    -<?php echo number_format($saldo_esperado, 2); ?></div>
                                 <p id="diff-msg"
                                     style="font-size: 0.75rem; margin-top: 10px; font-weight: 600; color: #64748b;">
                                     Turno con faltante</p>
@@ -339,17 +352,17 @@ $saldo_esperado = 150.50; // Example system balance
                             <div class="panel-arqueo">
                                 <div class="panel-header-count">Observaciones del Cierre</div>
                                 <div class="panel-body-count" style="padding: 15px;">
-                                    <textarea class="form-control" rows="3"
+                                    <textarea class="form-control" name="observaciones" rows="3"
                                         placeholder="Ej: Faltante por entrega de sencillo..."></textarea>
                                 </div>
                             </div>
 
-                            <button class="btn-finalize" onclick="finalizeClosure()">
+                            <button type="submit" class="btn-finalize">
                                 <i class="fas fa-lock"></i> Finalizar y Cerrar Caja
                             </button>
                         </div>
                     </div>
-                </div>
+                </form>
             </div>
         </main>
     </div>
@@ -384,37 +397,33 @@ $saldo_esperado = 150.50; // Example system balance
             // Update Summaries
             const totalArqueo = document.getElementById('total-arqueo');
             totalArqueo.textContent = '$ ' + total.toFixed(2);
+            document.getElementById('total-fisico-input').value = total;
 
             const diff = total - expected;
             const diffTotal = document.getElementById('diferencia-total');
             const diffMsg = document.getElementById('diff-msg');
 
-            diffTotal.textContent = (diff >= 0 ? '+ ' : '') + '$ ' + diff.toFixed(2);
+            diffTotal.textContent = (diff >= 0 ? '+ ' : '') + '$ ' + Math.abs(diff).toFixed(2);
 
             if (diff === 0) {
                 diffTotal.className = 'val';
                 diffMsg.textContent = '¡Caja Cuadrada Perfectamente!';
                 diffMsg.style.color = '#059669';
-                document.querySelector('.stat-diff').style.borderColor = '#059669';
             } else if (diff < 0) {
                 diffTotal.className = 'val difference-neg';
+                diffTotal.textContent = '- $ ' + Math.abs(diff).toFixed(2);
                 diffMsg.textContent = 'Turno con faltante de efectivo';
                 diffMsg.style.color = '#dc2626';
-                document.querySelector('.stat-diff').style.borderColor = '#dc2626';
             } else {
                 diffTotal.className = 'val difference-pos';
                 diffMsg.textContent = 'Turno con excedente de efectivo';
                 diffMsg.style.color = '#059669';
-                document.querySelector('.stat-diff').style.borderColor = '#2563eb';
             }
         }
 
-        function finalizeClosure() {
-            if (confirm('¿Estás seguro de que deseas finalizar el turno y cerrar la caja?')) {
-                alert('¡Cierre procesado correctamente!');
-                window.location.href = 'movimientos.php';
-            }
-        }
+        document.getElementById('form-cierre').onsubmit = function () {
+            return confirm('¿Estás seguro de que deseas finalizar el turno y cerrar la caja?');
+        };
     </script>
 </body>
 

@@ -8,11 +8,9 @@ require_once '../../includes/auth.php';
 
 $current_page = 'caja_apertura';
 
-// Simulación de datos de cajas disponibles
-$cajas_disponibles = [
-    ['id' => 1, 'codigo' => 'CAJA001', 'nombre' => 'Caja Principal'],
-    ['id' => 2, 'codigo' => 'CAJA002', 'nombre' => 'Caja Secundaria']
-];
+// Obtener cajas disponibles desde la base de datos
+$stmt_cajas = $pdo->query("SELECT id, codigo, nombre FROM cajas WHERE anulado = 0 AND activa = 1 ORDER BY nombre ASC");
+$cajas_disponibles = $stmt_cajas->fetchAll();
 
 ?>
 <!DOCTYPE html>

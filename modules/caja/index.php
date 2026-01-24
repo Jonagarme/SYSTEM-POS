@@ -8,11 +8,30 @@ require_once '../../includes/auth.php';
 
 $current_page = 'caja_index';
 
-// Mock data
-$cajas = [
-    ['codigo' => 'CAJA001', 'nombre' => 'Caja Principal', 'estado' => 'Activa', 'status_class' => 'badge-success'],
-    ['codigo' => 'CAJA002', 'nombre' => 'CAJA SECUNDARIA', 'estado' => 'Activa', 'status_class' => 'badge-success'],
+// Obtener cajas desde la base de datos
+$stmt = $pdo->query("SELECT *, CASE 
+                        WHEN activa = 1 THEN 'Activa' 
+                        ELSE 'Inactiva' 
+                    END as estado_nombre,
+                    CASE 
+                        WHEN activa = 1 THEN 'badge-success' 
+                        ELSE 'badge-danger' 
+                    END as status_class
+                    FROM cajas WHERE anulado = 0 ORDER BY nombre ASC");
+$cajas = $stmt->fetchAll();
+
+$totales = [
+    'total' => count($cajas),
+    'activas' => 0,
+    'inactivas' => 0
 ];
+
+foreach ($cajas as $c) {
+    if ($c['activa'] == 1)
+        $totales['activas']++;
+    else
+        $totales['inactivas']++;
+}
 ?>
 <!DOCTYPE html>
 <html lang="es">
@@ -272,21 +291,21 @@ $cajas = [
                     <div class="s-caja-card">
                         <div class="info">
                             <span class="lbl">TOTAL DE CAJAS</span>
-                            <span class="val">2</span>
+                            <span class="val"><?php echo $totales['total']; ?></span>
                         </div>
                         <i class="fas fa-boxes icon"></i>
                     </div>
                     <div class="s-caja-card">
                         <div class="info">
                             <span class="lbl" style="color: #059669;">CAJAS ACTIVAS</span>
-                            <span class="val">2</span>
+                            <span class="val"><?php echo $totales['activas']; ?></span>
                         </div>
                         <i class="fas fa-check-circle icon"></i>
                     </div>
                     <div class="s-caja-card">
                         <div class="info">
                             <span class="lbl" style="color: #f59e0b;">CAJAS INACTIVAS</span>
-                            <span class="val">0</span>
+                            <span class="val"><?php echo $totales['inactivas']; ?></span>
                         </div>
                         <i class="fas fa-times-circle icon"></i>
                     </div>

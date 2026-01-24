@@ -12,36 +12,62 @@ $periodo = $_GET['periodo'] ?? 'diario'; // diario, mensual, anual
 
 // Definir la query base según el periodo
 if ($periodo == 'mensual') {
-    $groupBy = "DATE_FORMAT(fechaEmision, '%Y-%m')";
     $selectLabel = "DATE_FORMAT(fechaEmision, '%M %Y') as etiqueta";
-    $orderBy = "DATE_FORMAT(fechaEmision, '%Y-%m') DESC";
-} elseif ($periodo == 'anual') {
-    $groupBy = "YEAR(fechaEmision)";
-    $selectLabel = "YEAR(fechaEmision) as etiqueta";
-    $orderBy = "YEAR(fechaEmision) DESC";
-} else {
-    // diario por defecto
-    $groupBy = "DATE(fechaEmision)";
-    $selectLabel = "DATE_FORMAT(fechaEmision, '%d/%m/%Y') as etiqueta";
-    $orderBy = "DATE(fechaEmision) DESC";
-}
 
-$stmt = $pdo->prepare("
-    SELECT 
-        $selectLabel,
-        COUNT(id) as total_transacciones,
-        SUM(subtotal) as subtotal,
-        SUM(iva) as iva,
-        SUM(total) as total,
-        MAX(fechaEmision) as fecha_referencia
-    FROM facturas_venta
-    WHERE anulado = 0
-    GROUP BY etiqueta
-    ORDER BY fecha_referencia DESC
-    LIMIT 50
-");
-$stmt->execute();
-$cierres = $stmt->fetchAll();
+    $stmt = $pdo->prepare("
+        SELECT 
+            $selectLabel,
+            COUNT(id) as total_transacciones,
+            SUM(subtotal) as subtotal,
+            SUM(iva) as iva,
+            SUM(total) as total,
+            MAX(fechaEmision) as fecha_referencia
+        FROM facturas_venta
+        WHERE anulado = 0
+        GROUP BY etiqueta
+        ORDER BY fecha_referencia DESC
+        LIMIT 50");
+    $stmt->execute();
+    $cierres = $stmt->fetchAll();
+} elseif ($periodo == 'anual') {
+    $selectLabel = "YEAR(fechaEmision) as etiqueta";
+
+    $stmt = $pdo->prepare("
+        SELECT 
+            $selectLabel,
+            COUNT(id) as total_transacciones,
+            SUM(subtotal) as subtotal,
+            SUM(iva) as iva,
+            SUM(total) as total,
+            MAX(fechaEmision) as fecha_referencia
+        FROM facturas_venta
+        WHERE anulado = 0
+        GROUP BY etiqueta
+        ORDER BY fecha_referencia DESC
+        LIMIT 50");
+    $stmt->execute();
+    $cierres = $stmt->fetchAll();
+} else {
+    // diario por defecto - Usamos la tabla cierres_caja para los turnos
+    $stmt = $pdo->query("
+        SELECT 
+            c.id,
+            CONCAT(ca.nombre, ' (', DATE_FORMAT(c.fechaApertura, '%d/%m %H:%i'), ')') as etiqueta,
+            DATE_FORMAT(c.fechaApertura, '%d/%m/%Y') as fecha_fmt,
+            u.nombreCompleto as usuario,
+            c.saldoInicial,
+            c.totalContadoFisico,
+            c.estado,
+            c.fechaApertura as fecha_referencia,
+            (SELECT COUNT(*) FROM facturas_venta WHERE idCierreCaja = c.id AND anulado = 0) as total_transacciones,
+            (SELECT SUM(total) FROM facturas_venta WHERE idCierreCaja = c.id AND anulado = 0) as total
+        FROM cierres_caja c
+        LEFT JOIN cajas ca ON c.idCaja = ca.id
+        LEFT JOIN usuarios u ON c.idUsuarioApertura = u.id
+        ORDER BY c.fechaApertura DESC
+        LIMIT 100");
+    $cierres = $stmt->fetchAll();
+}
 
 ?>
 <!DOCTYPE html>
@@ -168,8 +194,6 @@ $cierres = $stmt->fetchAll();
             background: #f0f7ff;
         }
 
-
-
         .cierres-stats {
             display: grid;
             grid-template-columns: repeat(3, 1fr);
@@ -215,7 +239,7 @@ $cierres = $stmt->fetchAll();
             color: #1e293b;
         }
 
-        /* RESPONSIVE STYLES - MOVED TO END TO ENSURE OVERRIDE */
+        /* RESPONSIVE STYLES */
         @media (max-width: 1024px) {
             .cierres-stats {
                 grid-template-columns: repeat(2, 1fr);
@@ -292,9 +316,23 @@ $cierres = $stmt->fetchAll();
                     </div>
                 </div>
 
+                <?php if (isset($_GET['success']) && $_GET['success'] == 'cierre' && isset($_GET['id_print'])): ?>
+                    <div
+                        style="background-color: #d1fae5; border: 1px solid #10b981; color: #065f46; padding: 15px; border-radius: 8px; margin-bottom: 25px; display: flex; justify-content: space-between; align-items: center;">
+                        <div style="display: flex; align-items: center; gap: 10px;">
+                            <i class="fas fa-check-circle" style="font-size: 1.2rem;"></i>
+                            <span>¡Caja cerrada correctamente! ¿Desea imprimir el ticket de cierre?</span>
+                        </div>
+                        <a href="imprimir_cierre.php?id=<?php echo $_GET['id_print']; ?>" target="_blank"
+                            style="background-color: #059669; color: white; padding: 8px 15px; border-radius: 6px; text-decoration: none; font-weight: 600; font-size: 0.85rem; display: flex; align-items: center; gap: 8px;">
+                            <i class="fas fa-print"></i> Imprimir Ticket
+                        </a>
+                    </div>
+                <?php endif; ?>
+
                 <div class="cierres-tabs">
                     <a href="?periodo=diario" class="tab-item <?php echo $periodo == 'diario' ? 'active' : ''; ?>">
-                        <i class="fas fa-calendar-day"></i> Diarios
+                        <i class="fas fa-calendar-day"></i> Diarios / Turnos
                     </a>
                     <a href="?periodo=mensual" class="tab-item <?php echo $periodo == 'mensual' ? 'active' : ''; ?>">
                         <i class="fas fa-calendar-alt"></i> Mensuales
@@ -308,13 +346,11 @@ $cierres = $stmt->fetchAll();
                     <?php
                     $stats = [
                         'transacciones' => 0,
-                        'subtotal' => 0,
                         'total' => 0
                     ];
                     foreach ($cierres as $c) {
                         $stats['transacciones'] += $c['total_transacciones'];
-                        $stats['subtotal'] += $c['subtotal'];
-                        $stats['total'] += $c['total'];
+                        $stats['total'] += ($c['total'] ?? 0);
                     }
                     ?>
                     <div class="stat-card-cierre">
@@ -331,8 +367,8 @@ $cierres = $stmt->fetchAll();
                             <i class="fas fa-file-invoice"></i>
                         </div>
                         <div class="info">
-                            <span class="lbl">Recaudado (Subtotal)</span>
-                            <span class="val">$ <?php echo number_format($stats['subtotal'], 2); ?></span>
+                            <span class="lbl">Recaudado (Sesiones)</span>
+                            <span class="val">$ <?php echo number_format($stats['total'], 2); ?></span>
                         </div>
                     </div>
                     <div class="stat-card-cierre"
@@ -341,9 +377,10 @@ $cierres = $stmt->fetchAll();
                             <i class="fas fa-dollar-sign"></i>
                         </div>
                         <div class="info">
-                            <span class="lbl" style="color: #9a3412;">Gran Total (IVA Incl.)</span>
-                            <span class="val"
-                                style="color: #c2410c; font-size: 1.5rem;"><?php echo number_format($stats['total'], 2); ?></span>
+                            <span class="lbl" style="color: #9a3412;">Eficiencia Promedio</span>
+                            <span class="val" style="color: #c2410c; font-size: 1.5rem;">
+                                <?php echo $stats['transacciones'] > 0 ? '$ ' . number_format($stats['total'] / $stats['transacciones'], 2) : '$ 0.00'; ?>
+                            </span>
                         </div>
                     </div>
                 </div>
@@ -353,9 +390,12 @@ $cierres = $stmt->fetchAll();
                         <thead>
                             <tr>
                                 <th>Periodo / Etiqueta</th>
+                                <?php if ($periodo == 'diario'): ?>
+                                    <th>Usuario</th>
+                                    <th style="text-align: right;">S. Inicial</th>
+                                    <th style="text-align: right;">S. Final</th>
+                                <?php endif; ?>
                                 <th style="text-align: center;">Transacciones</th>
-                                <th style="text-align: right;">Subtotal</th>
-                                <th style="text-align: right;">IVA</th>
                                 <th style="text-align: right;">Total Recaudado</th>
                                 <th style="text-align: center;">Acciones</th>
                             </tr>
@@ -363,14 +403,14 @@ $cierres = $stmt->fetchAll();
                         <tbody>
                             <?php if (empty($cierres)): ?>
                                 <tr>
-                                    <td colspan="6" style="text-align: center; padding: 50px; color: #64748b;">
+                                    <td colspan="7" style="text-align: center; padding: 50px; color: #64748b;">
                                         <i class="fas fa-folder-open"
                                             style="font-size: 2rem; display: block; margin-bottom: 10px;"></i>
                                         No se encontraron datos para este periodo.
                                     </td>
                                 </tr>
                             <?php else: ?>
-                                <?php foreach ($cierres as $c): 
+                                <?php foreach ($cierres as $c):
                                     $ref = new DateTime($c['fecha_referencia']);
                                     if ($periodo == 'mensual') {
                                         $f_inicio = $ref->format('Y-m-01');
@@ -382,32 +422,49 @@ $cierres = $stmt->fetchAll();
                                         $f_inicio = $ref->format('Y-m-d');
                                         $f_fin = $ref->format('Y-m-d');
                                     }
-                                ?>
+                                    ?>
                                     <tr>
                                         <td style="font-weight: 600; color: #1e293b;">
                                             <?php echo $c['etiqueta']; ?>
+                                            <?php if ($periodo == 'diario'): ?>
+                                                <br><small
+                                                    style="color:<?php echo $c['estado'] == 'ABIERTA' ? '#059669' : '#64748b'; ?>"><?php echo $c['estado']; ?></small>
+                                            <?php endif; ?>
                                         </td>
+                                        <?php if ($periodo == 'diario'): ?>
+                                            <td><?php echo htmlspecialchars($c['usuario'] ?? '-'); ?></td>
+                                            <td style="text-align: right;">$ <?php echo number_format($c['saldoInicial'], 2); ?>
+                                            </td>
+                                            <td style="text-align: right;">$
+                                                <?php echo number_format($c['totalContadoFisico'] ?? 0, 2); ?>
+                                            </td>
+                                        <?php endif; ?>
                                         <td style="text-align: center;">
-                                            <span class="badge-count">
-                                                <?php echo $c['total_transacciones']; ?>
-                                            </span>
-                                        </td>
-                                        <td style="text-align: right;" class="val-money">
-                                            $
-                                            <?php echo number_format($c['subtotal'], 2); ?>
-                                        </td>
-                                        <td style="text-align: right;" class="val-money">
-                                            $
-                                            <?php echo number_format($c['iva'], 2); ?>
+                                            <span class="badge-count"><?php echo $c['total_transacciones']; ?></span>
                                         </td>
                                         <td style="text-align: right; color: #059669; font-weight: 800;" class="val-money">
-                                            $
-                                            <?php echo number_format($c['total'], 2); ?>
+                                            $ <?php echo number_format($c['total'] ?? 0, 2); ?>
                                         </td>
                                         <td style="text-align: center;">
-                                            <a href="../ventas/index.php?fecha_inicio=<?php echo $f_inicio; ?>&fecha_fin=<?php echo $f_fin; ?>" class="btn-action-report" style="text-decoration: none; display: inline-block;" title="Ver detalle de este periodo">
-                                                <i class="fas fa-search-plus"></i> Detalle
-                                            </a>
+                                            <?php if ($periodo == 'diario'): ?>
+                                                <div style="display: flex; gap: 5px; justify-content: center;">
+                                                    <a href="../ventas/index.php?idCierreCaja=<?php echo $c['id']; ?>"
+                                                        class="btn-action-report"
+                                                        style="text-decoration: none; display: inline-block;">
+                                                        <i class="fas fa-search-plus"></i> Detalle
+                                                    </a>
+                                                    <a href="imprimir_cierre.php?id=<?php echo $c['id']; ?>" target="_blank"
+                                                        class="btn-action-report"
+                                                        style="text-decoration: none; display: inline-block; background-color: #2563eb;">
+                                                        <i class="fas fa-print"></i> Ticket
+                                                    </a>
+                                                </div>
+                                            <?php else: ?>
+                                                <a href="../ventas/index.php?fecha_inicio=<?php echo $f_inicio; ?>&fecha_fin=<?php echo $f_fin; ?>"
+                                                    class="btn-action-report" style="text-decoration: none; display: inline-block;">
+                                                    <i class="fas fa-search-plus"></i> Detalle
+                                                </a>
+                                            <?php endif; ?>
                                         </td>
                                     </tr>
                                 <?php endforeach; ?>

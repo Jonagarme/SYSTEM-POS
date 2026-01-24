@@ -12,9 +12,19 @@ $idCliente = $_GET['idCliente'] ?? '';
 $search = $_GET['search'] ?? '';
 $fecha_inicio = $_GET['fecha_inicio'] ?? '2025-01-01';
 $fecha_fin = $_GET['fecha_fin'] ?? date('Y-m-d');
+$idCierreCaja = $_GET['idCierreCaja'] ?? '';
 
-$where = "WHERE f.anulado = 0 AND DATE(f.fechaEmision) BETWEEN ? AND ?";
-$params = [$fecha_inicio, $fecha_fin];
+$where = "WHERE f.anulado = 0";
+$params = [];
+
+if (!empty($idCierreCaja)) {
+    $where .= " AND f.idCierreCaja = ?";
+    $params[] = $idCierreCaja;
+} else {
+    $where .= " AND DATE(f.fechaEmision) BETWEEN ? AND ?";
+    $params[] = $fecha_inicio;
+    $params[] = $fecha_fin;
+}
 
 if (!empty($idCliente)) {
     $where .= " AND f.idCliente = ?";
