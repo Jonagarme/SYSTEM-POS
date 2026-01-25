@@ -272,7 +272,7 @@ $current_page = 'ventas_devoluciones';
                     <div class="search-box">
                         <input type="text" id="invoice-id"
                             placeholder="Ingrese el número de factura (ej: 001-001-000000017)"
-                            value="001-001-000000017">
+                            value="">
                         <button class="btn-search-inner" onclick="loadInvoice()"><i class="fas fa-search"></i> Buscar
                             Factura</button>
                     </div>
@@ -286,78 +286,29 @@ $current_page = 'ventas_devoluciones';
                                 Factura</h3>
                             <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; font-size: 0.85rem;">
                                 <div><strong style="color: #475569;">Número de Factura:</strong></div>
-                                <div id="lbl-invoice-no">001-001-000000017</div>
+                                <div id="lbl-invoice-no">-</div>
                                 <div><strong style="color: #475569;">Fecha de Venta:</strong></div>
-                                <div>27/11/2025 00:29</div>
+                                <div id="lbl-invoice-date">-</div>
                                 <div><strong style="color: #475569;">Total Original:</strong></div>
-                                <div style="font-weight: 700;">$ 8.35</div>
+                                <div id="lbl-invoice-total" style="font-weight: 700;">$ 0.00</div>
                             </div>
                         </div>
                         <div class="pos-panel" style="padding: 20px;">
                             <h3 class="return-section-title"><i class="fas fa-user"></i> Información del Cliente</h3>
                             <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; font-size: 0.85rem;">
                                 <div><strong style="color: #475569;">Nombre:</strong></div>
-                                <div>WASHINGTON JORGE DEL ROSARIO CARRERA</div>
+                                <div id="lbl-client-name">-</div>
                                 <div><strong style="color: #475569;">Documento:</strong></div>
-                                <div>0920259256</div>
+                                <div id="lbl-client-doc">-</div>
                             </div>
                         </div>
                     </div>
 
                     <h3 class="return-section-title" style="color: #1e293b;"><i class="fas fa-boxes"></i> Productos
                         Disponibles para Devolución</h3>
-                    <div
+                    <div id="products-container"
                         style="background: white; border-radius: 12px; overflow: hidden; box-shadow: var(--shadow-sm); margin-bottom: 30px;">
-                        <div class="return-product-row">
-                            <div class="product-main-info">
-                                <input type="checkbox" checked style="width: 18px; height: 18px; cursor: pointer;">
-                                <div class="product-meta">
-                                    <h4>VITAMINA C NARANJA 500MG SX12 TAB MAST - LASANTE</h4>
-                                    <span>Código: 1779 | Precio unitario: $ 0.38</span>
-                                </div>
-                            </div>
-                            <div class="return-qty-controls">
-                                <div class="stat-item">
-                                    <span class="label">Cant. Original</span>
-                                    <span class="value-badge">3.00</span>
-                                </div>
-                                <div class="stat-item">
-                                    <span class="label">Disponible</span>
-                                    <span class="value-badge-green value-badge">3.00</span>
-                                </div>
-                                <div class="return-input-box">
-                                    <label>Devolver:</label>
-                                    <input type="number" value="1" min="0" max="3">
-                                    <div style="font-size: 0.7rem; color: #15803d; font-weight: 700; margin-top: 4px;">
-                                        Subtotal disponible: $ 0.74</div>
-                                </div>
-                            </div>
-                        </div>
-                        <div class="return-product-row">
-                            <div class="product-main-info">
-                                <input type="checkbox" style="width: 18px; height: 18px; cursor: pointer;">
-                                <div class="product-meta">
-                                    <h4>VITAMINA C FRESA SOL ORAL GOTAS X30ML - MK</h4>
-                                    <span>Código: 1778 | Precio unitario: $ 2.34</span>
-                                </div>
-                            </div>
-                            <div class="return-qty-controls">
-                                <div class="stat-item">
-                                    <span class="label">Cant. Original</span>
-                                    <span class="value-badge">3.00</span>
-                                </div>
-                                <div class="stat-item">
-                                    <span class="label">Disponible</span>
-                                    <span class="value-badge-green value-badge">3.00</span>
-                                </div>
-                                <div class="return-input-box">
-                                    <label>Devolver:</label>
-                                    <input type="number" value="1" min="0" max="3">
-                                    <div style="font-size: 0.7rem; color: #15803d; font-weight: 700; margin-top: 4px;">
-                                        Subtotal disponible: $ 7.02</div>
-                                </div>
-                            </div>
-                        </div>
+                        <!-- Products will be loaded here -->
                     </div>
 
                     <div class="motivo-box">
@@ -366,17 +317,18 @@ $current_page = 'ventas_devoluciones';
                                 <h3 class="return-section-title" style="color: #1e293b;"><i
                                         class="fas fa-comment-dots"></i> Motivo de la Devolución</h3>
                                 <label style="display: block; font-size: 0.8rem; margin-bottom: 8px;">Motivo *</label>
-                                <select class="form-control">
+                                <select class="form-control" id="return-reason">
                                     <option>Seleccione un motivo</option>
                                     <option>Producto Dañado</option>
                                     <option>Vencimiento Próximo</option>
                                     <option>Error de Compra</option>
+                                    <option>Cambio de Opinión</option>
                                 </select>
                             </div>
                             <div>
                                 <label
                                     style="display: block; font-size: 0.8rem; margin-bottom: 8px; font-weight: 700;">Observaciones</label>
-                                <textarea class="form-control" rows="3"
+                                <textarea class="form-control" id="return-obs" rows="3"
                                     placeholder="Detalles adicionales sobre la devolución (opcional)"></textarea>
                             </div>
                         </div>
@@ -391,7 +343,7 @@ $current_page = 'ventas_devoluciones';
                         <div class="return-total-section">
                             <div class="total-box-label">
                                 <span>Total a Devolver</span>
-                                <strong>$ 0.74</strong>
+                                <strong id="lbl-return-total">$ 0.00</strong>
                             </div>
                             <button class="btn-confirm-return" onclick="processReturn()">
                                 <i class="fas fa-check"></i> PROCESAR DEVOLUCIÓN
@@ -405,19 +357,168 @@ $current_page = 'ventas_devoluciones';
 
     <?php include $root . 'includes/scripts.php'; ?>
     <script>
+        let currentInvoice = null;
+        let invoiceDetails = [];
+
         function loadInvoice() {
-            const id = document.getElementById('invoice-id').value;
-            if (id) {
-                document.getElementById('lbl-invoice-no').innerText = id;
-                document.getElementById('return-details').style.display = 'block';
-                window.scrollTo({ top: 500, behavior: 'smooth' });
+            const numero = document.getElementById('invoice-id').value;
+            if (!numero) {
+                Swal.fire('Error', 'Ingrese un número de factura', 'error');
+                return;
+            }
+
+            const btn = document.querySelector('.btn-search-inner');
+            const originalHtml = btn.innerHTML;
+            btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Buscando...';
+            btn.disabled = true;
+
+            fetch(`ajax_get_invoice_by_number.php?numero=${numero}`)
+                .then(response => response.json())
+                .then(data => {
+                    btn.innerHTML = originalHtml;
+                    btn.disabled = false;
+
+                    if (data.success) {
+                        currentInvoice = data.venta;
+                        invoiceDetails = data.detalles;
+                        renderInvoiceInfo(data.venta);
+                        renderProductRows(data.detalles);
+                        document.getElementById('return-details').style.display = 'block';
+                        window.scrollTo({ top: 500, behavior: 'smooth' });
+                        calculateTotal();
+                    } else {
+                        Swal.fire('No encontrado', data.error || 'No se encontró la factura', 'warning');
+                        document.getElementById('return-details').style.display = 'none';
+                    }
+                })
+                .catch(error => {
+                    btn.innerHTML = originalHtml;
+                    btn.disabled = false;
+                    console.error('Error:', error);
+                    Swal.fire('Error', 'Ocurrió un error al buscar la factura', 'error');
+                });
+        }
+
+        function renderInvoiceInfo(venta) {
+            document.getElementById('lbl-invoice-no').innerText = venta.numeroFactura;
+            document.getElementById('lbl-invoice-date').innerText = venta.fechaEmision;
+            document.getElementById('lbl-invoice-total').innerText = '$ ' + parseFloat(venta.total).toFixed(2);
+            document.getElementById('lbl-client-name').innerText = venta.cliente_nombre || 'Consumidor Final';
+            document.getElementById('lbl-client-doc').innerText = venta.cliente_ruc || '9999999999999';
+        }
+
+        function renderProductRows(detalles) {
+            const container = document.getElementById('products-container');
+            container.innerHTML = '';
+
+            detalles.forEach((det, index) => {
+                const row = document.createElement('div');
+                row.className = 'return-product-row';
+                row.innerHTML = `
+                    <div class="product-main-info">
+                        <input type="checkbox" id="chk-${index}" class="product-checkbox" onchange="calculateTotal()" style="width: 18px; height: 18px; cursor: pointer;">
+                        <div class="product-meta">
+                            <h4>${det.productoNombre}</h4>
+                            <span>Código: ${det.codigo || 'N/A'} | Precio unitario: $ ${parseFloat(det.precioUnitario).toFixed(2)}</span>
+                        </div>
+                    </div>
+                    <div class="return-qty-controls">
+                        <div class="stat-item">
+                            <span class="label">Cant. Original</span>
+                            <span class="value-badge">${parseFloat(det.cantidad).toFixed(2)}</span>
+                        </div>
+                        <div class="stat-item">
+                            <span class="label">Disponible</span>
+                            <span class="value-badge-green value-badge">${parseFloat(det.cantidad).toFixed(2)}</span>
+                        </div>
+                        <div class="return-input-box">
+                            <label>Devolver:</label>
+                            <input type="number" id="qty-${index}" value="0" min="0" max="${det.cantidad}" step="1" onchange="validateQty(${index}); calculateTotal();" onkeyup="validateQty(${index}); calculateTotal();">
+                            <div style="font-size: 0.7rem; color: #15803d; font-weight: 700; margin-top: 4px;">
+                                Subtotal disponible: $ <span id="subtotal-${index}">0.00</span>
+                            </div>
+                        </div>
+                    </div>
+                `;
+                container.appendChild(row);
+            });
+        }
+
+        function validateQty(index) {
+            const input = document.getElementById(`qty-${index}`);
+            const chk = document.getElementById(`chk-${index}`);
+            const max = parseFloat(input.max);
+            let val = parseFloat(input.value) || 0;
+
+            if (val > max) {
+                input.value = max;
+                val = max;
+            }
+            if (val < 0) {
+                input.value = 0;
+                val = 0;
+            }
+
+            if (val > 0) {
+                chk.checked = true;
+            } else {
+                chk.checked = false;
             }
         }
 
+        function calculateTotal() {
+            let total = 0;
+            invoiceDetails.forEach((det, index) => {
+                const chk = document.getElementById(`chk-${index}`);
+                const qtyInput = document.getElementById(`qty-${index}`);
+                const subtotalSpan = document.getElementById(`subtotal-${index}`);
+
+                const qty = parseFloat(qtyInput.value) || 0;
+                const subtotal = qty * parseFloat(det.precioUnitario);
+                subtotalSpan.innerText = subtotal.toFixed(2);
+
+                if (chk.checked) {
+                    total += subtotal;
+                }
+            });
+
+            document.getElementById('lbl-return-total').innerText = '$ ' + total.toFixed(2);
+        }
+
         function processReturn() {
+            const selectedItems = [];
+            invoiceDetails.forEach((det, index) => {
+                const chk = document.getElementById(`chk-${index}`);
+                const qtyInput = document.getElementById(`qty-${index}`);
+                const qty = parseFloat(qtyInput.value) || 0;
+
+                if (chk.checked && qty > 0) {
+                    selectedItems.push({
+                        detalle_id: det.id,
+                        producto_id: det.idProducto,
+                        cantidad: qty,
+                        nombre: det.productoNombre,
+                        precio: det.precioUnitario
+                    });
+                }
+            });
+
+            if (selectedItems.length === 0) {
+                Swal.fire('Atención', 'Seleccione al menos un producto con cantidad mayor a cero', 'info');
+                return;
+            }
+
+            const motivo = document.getElementById('return-reason').value;
+            if (!motivo || motivo === 'Seleccione un motivo') {
+                Swal.fire('Atención', 'Seleccione el motivo de la devolución', 'info');
+                return;
+            }
+
+            const observaciones = document.getElementById('return-obs').value;
+
             Swal.fire({
                 title: '¿Confirmar Devolución?',
-                text: "Los productos seleccionados volverán al inventario.",
+                text: `Se procesarán ${selectedItems.length} productos. Los productos volverán al inventario.`,
                 icon: 'warning',
                 showCancelButton: true,
                 confirmButtonColor: '#c5221f',
@@ -426,15 +527,40 @@ $current_page = 'ventas_devoluciones';
                 cancelButtonText: 'Cancelar'
             }).then((result) => {
                 if (result.isConfirmed) {
-                    Swal.fire(
-                        '¡Procesado!',
-                        'La devolución se ha registrado correctamente.',
-                        'success'
-                    ).then(() => {
-                        window.location.href = 'devoluciones.php';
-                    });
+                    const payload = {
+                        venta_id: currentInvoice.id,
+                        motivo: motivo,
+                        observaciones: observaciones,
+                        items: selectedItems
+                    };
+
+                    fetch('ajax_guardar_devolucion.php', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify(payload)
+                    })
+                        .then(response => response.json())
+                        .then(data => {
+                            if (data.success) {
+                                Swal.fire(
+                                    '¡Procesado!',
+                                    'La devolución se ha registrado correctamente.',
+                                    'success'
+                                ).then(() => {
+                                    window.location.href = 'devoluciones.php';
+                                });
+                            } else {
+                                Swal.fire('Error', data.error || 'Error al guardar la devolución', 'error');
+                            }
+                        })
+                        .catch(error => {
+                            console.error('Error:', error);
+                            Swal.fire('Error', 'Ocurrió un error al procesar la solicitud', 'error');
+                        });
                 }
-            })
+            });
         }
     </script>
 </body>

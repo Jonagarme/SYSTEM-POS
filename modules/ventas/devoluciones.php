@@ -1,11 +1,28 @@
-<?php
-/**
- * Sales Returns List - Lista de Devoluciones
- */
 session_start();
 require_once '../../includes/db.php';
 
 $current_page = 'ventas_devoluciones';
+
+// Fetch returns
+$stmt = $pdo->query("
+SELECT d.*,
+f.numeroFactura as factura_numero,
+CONCAT(c.nombres, ' ', c.apellidos) as cliente_nombre,
+u.nombreUsuario as usuario_nombre
+FROM ventas_devolucionventa d
+LEFT JOIN facturas_venta f ON d.venta_original_id = f.id
+LEFT JOIN clientes c ON f.idCliente = c.id
+LEFT JOIN usuarios u ON d.usuario_id = u.id
+ORDER BY d.fecha DESC
+");
+$devoluciones = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+// Fetch summaries
+$stmtSum = $pdo->query("SELECT COUNT(*) as total_count, SUM(total_devolucion) as total_amount FROM
+ventas_devolucionventa");
+$summary = $stmtSum->fetch(PDO::FETCH_ASSOC);
+$total_count = $summary['total_count'] ?? 0;
+$total_amount = $summary['total_amount'] ?? 0;
 ?>
 <!DOCTYPE html>
 <html lang="es">
@@ -228,7 +245,7 @@ $current_page = 'ventas_devoluciones';
                 <div class="returns-header">
                     <div class="returns-title">
                         <h1><i class="fas fa-undo"></i> Lista de Devoluciones</h1>
-                        <p>Historial de devoluciones realizadas (MODO DEMO)</p>
+                        <p>Historial de devoluciones realizadas en el sistema</p>
                     </div>
                     <a href="nueva_devolucion.php" class="btn-green-lg">
                         <i class="fas fa-plus"></i> Nueva Devolución
@@ -239,7 +256,7 @@ $current_page = 'ventas_devoluciones';
                     <div class="summary-card-red">
                         <div class="info">
                             <h3>Total Devoluciones</h3>
-                            <div class="value">0</div>
+                            <div class="value"><?php echo $total_count; ?></div>
                         </div>
                         <div class="icon">
                             <i class="fas fa-list-ul"></i>
@@ -248,7 +265,7 @@ $current_page = 'ventas_devoluciones';
                     <div class="summary-card-red" style="background: #dc2626;">
                         <div class="info">
                             <h3>$ Monto Total Devuelto</h3>
-                            <div class="value">$0.00</div>
+                            <div class="value">$<?php echo number_format($total_amount, 2); ?></div>
                         </div>
                         <div class="icon">
                             <i class="fas fa-money-bill-wave"></i>
@@ -298,14 +315,55 @@ $current_page = 'ventas_devoluciones';
                     </div>
                 </div>
 
-                <div class="empty-state">
-                    <i class="fas fa-undo"></i>
-                    <h3>No se encontraron devoluciones</h3>
-                    <p>No hay devoluciones que coincidan con los filtros aplicados.</p>
-                    <a href="nueva_devolucion.php" class="btn-green-lg" style="background: #10b981;">
-                        <i class="fas fa-plus"></i> Crear Primera Devolución
-                    </a>
-                </div>
+                <?php if (empty($devoluciones)): ?>
+                    <div class="empty-state">
+                        <i class="fas fa-undo"></i>
+                        <h3>No se encontraron devoluciones</h3>
+                        <p>No hay devoluciones registradas en el sistema todavía.</p>
+                        <a href="nueva_devolucion.php" class="btn-green-lg" style="background: #10b981;">
+                            <i class="fas fa-plus"></i> Crear Primera Devolución
+                        </a>
+                    </div>
+                <?php else: ?>
+                    <div class="pos-panel table-responsive-container">
+                        <table class="table">
+                            <thead>
+                                <tr>
+                                    <th># Devolución</th>
+                                    <th>Fecha</th>
+                                    <th>Factura Orig.</th>
+                                    <th>Cliente</th>
+                                    <th>Motivo</th>
+                                    <th>Total</th>
+                                    <th>Usuario</th>
+                                    <th>Acciones</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <?php foreach ($devoluciones as $dev): ?>
+                                    <tr>
+                                        <td><strong><?php echo $dev['numero_devolucion']; ?></strong></td>
+                                        <td><span style="font-size: 0.85rem; color: #64748b;"><?php echo date('d/m/Y H:i', strtotime($dev['fecha'])); ?></span></td>
+                                        <td><span class="badge badge-outline"><?php echo $dev['factura_numero']; ?></span></td>
+                                        <td><?php echo $dev['cliente_nombre']; ?></td>
+                                        <td>
+                                            <span class="badge" style="background: #fef3c7; color: #92400e;">
+                                                <?php echo $dev['motivo']; ?>
+                                            </span>
+                                        </td>
+                                        <td style="font-weight: 700; color: #c5221f;">$ <?php echo number_format($dev['total_devolucion'], 2); ?></td>
+                                        <td style="font-size: 0.85rem;"><?php echo $dev['usuario_nombre']; ?></td>
+                                        <td>
+                                            <button class="btn btn-sm btn-outline" title="Ver Detalles">
+                                                <i class="fas fa-eye"></i>
+                                            </button>
+                                        </td>
+                                    </tr>
+                                <?php endforeach; ?>
+                            </tbody>
+                        </table>
+                    </div>
+                <?php endif; ?>
             </div>
         </main>
     </div>
