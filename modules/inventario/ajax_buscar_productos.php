@@ -9,7 +9,7 @@ $q = isset($_GET['q']) ? trim($_GET['q']) : '';
 try {
     if (empty($q)) {
         // Si no hay búsqueda, mostrar los 15 productos más recientes o con stock
-        $sql = "SELECT id, nombre, codigoPrincipal as barcode, stock, precioVenta as price 
+        $sql = "SELECT id, nombre, codigoPrincipal as barcode, stock, precioVenta as price, manejaLote 
                 FROM productos 
                 WHERE anulado = 0 
                 ORDER BY creadoDate DESC 
@@ -32,7 +32,7 @@ try {
         }
 
         $whereSql = implode(' AND ', $whereClauses);
-        $sql = "SELECT id, nombre, codigoPrincipal as barcode, stock, precioVenta as price 
+        $sql = "SELECT id, nombre, codigoPrincipal as barcode, stock, precioVenta as price, manejaLote 
                 FROM productos 
                 WHERE ($whereSql) AND anulado = 0 
                 LIMIT 25";

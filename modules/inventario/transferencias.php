@@ -44,7 +44,7 @@ try {
     $query = "SELECT t.*, 
                 uo.nombre as origen_nombre, 
                 ud.nombre as destino_nombre,
-                u.nombre as usuario_nombre
+                u.nombreCompleto as usuario_nombre
               FROM inventario_transferenciastock t
               LEFT JOIN inventario_ubicacion uo ON t.ubicacion_origen_id = uo.id
               LEFT JOIN inventario_ubicacion ud ON t.ubicacion_destino_id = ud.id
@@ -498,7 +498,8 @@ $current_page = 'inventario_transferencias';
                                     ?>
                                     <tr>
                                         <td style="font-weight: 600;">
-                                            <?php echo htmlspecialchars($t['numero_transferencia']); ?></td>
+                                            <?php echo htmlspecialchars($t['numero_transferencia']); ?>
+                                        </td>
                                         <td><?php echo date('d/m/Y H:i', strtotime($t['creadoDate'])); ?></td>
                                         <td><?php echo htmlspecialchars($t['origen_nombre']); ?></td>
                                         <td><?php echo htmlspecialchars($t['destino_nombre']); ?></td>

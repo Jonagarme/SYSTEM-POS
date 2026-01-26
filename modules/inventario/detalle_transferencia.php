@@ -5,7 +5,7 @@
 session_start();
 require_once '../../includes/db.php';
 
-$id = isset($_GET['id']) ? (int)$_GET['id'] : 0;
+$id = isset($_GET['id']) ? (int) $_GET['id'] : 0;
 
 if (!$id) {
     header('Location: transferencias.php');
@@ -17,7 +17,7 @@ try {
     $stmt = $pdo->prepare("SELECT t.*, 
                 uo.nombre as origen_nombre, 
                 ud.nombre as destino_nombre,
-                u.nombre as usuario_nombre
+                u.nombreCompleto as usuario_nombre
               FROM inventario_transferenciastock t
               LEFT JOIN inventario_ubicacion uo ON t.ubicacion_origen_id = uo.id
               LEFT JOIN inventario_ubicacion ud ON t.ubicacion_destino_id = ud.id
@@ -129,8 +129,15 @@ $current_page = 'inventario_transferencias';
             font-weight: 700;
         }
 
-        .badge-pending { background: #fef3c7; color: #92400e; }
-        .badge-completed { background: #dcfce7; color: #166534; }
+        .badge-pending {
+            background: #fef3c7;
+            color: #92400e;
+        }
+
+        .badge-completed {
+            background: #dcfce7;
+            color: #166534;
+        }
     </style>
 </head>
 
@@ -143,14 +150,17 @@ $current_page = 'inventario_transferencias';
                 <div class="dt-header">
                     <h1>Mantenimiento de Transferencia</h1>
                     <div style="display: flex; gap: 10px;">
-                        <a href="transferencias.php" class="btn btn-outline"><i class="fas fa-arrow-left"></i> Volver</a>
-                        <button class="btn btn-primary" onclick="window.print()"><i class="fas fa-print"></i> Imprimir</button>
+                        <a href="transferencias.php" class="btn btn-outline"><i class="fas fa-arrow-left"></i>
+                            Volver</a>
+                        <button class="btn btn-primary" onclick="window.print()"><i class="fas fa-print"></i>
+                            Imprimir</button>
                     </div>
                 </div>
 
                 <div class="dt-card">
                     <div class="dt-card-header">
-                        <span>Detalles del Documento: <?php echo htmlspecialchars($transferencia['numero_transferencia']); ?></span>
+                        <span>Detalles del Documento:
+                            <?php echo htmlspecialchars($transferencia['numero_transferencia']); ?></span>
                         <span class="badge badge-pending"><?php echo $transferencia['estado']; ?></span>
                     </div>
                     <div class="dt-info-grid">
@@ -197,7 +207,8 @@ $current_page = 'inventario_transferencias';
                                 <tr>
                                     <td><?php echo htmlspecialchars($d['barcode']); ?></td>
                                     <td><?php echo htmlspecialchars($d['producto_nombre']); ?></td>
-                                    <td style="text-align: center; font-weight: 700;"><?php echo number_format($d['cantidad'], 2); ?></td>
+                                    <td style="text-align: center; font-weight: 700;">
+                                        <?php echo number_format($d['cantidad'], 2); ?></td>
                                     <td style="text-align: center;">-</td>
                                 </tr>
                             <?php endforeach; ?>
@@ -207,7 +218,8 @@ $current_page = 'inventario_transferencias';
 
                 <?php if ($transferencia['estado'] == 'PENDIENTE'): ?>
                     <div style="display: flex; justify-content: flex-end; gap: 15px; margin-top: 20px;">
-                        <button class="btn btn-outline" style="color: #ef4444; border-color: #fecaca;">Anular Transferencia</button>
+                        <button class="btn btn-outline" style="color: #ef4444; border-color: #fecaca;">Anular
+                            Transferencia</button>
                         <button class="btn btn-primary" style="background: #10b981;">Confirmar Recepción</button>
                     </div>
                 <?php endif; ?>

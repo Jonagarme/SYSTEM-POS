@@ -25,6 +25,24 @@ try {
 }
 
 $current_page = 'inventario_ubicaciones';
+
+// Deletion Logic
+if (isset($_GET['delete'])) {
+    try {
+        $id_delete = (int) $_GET['delete'];
+        $stmt = $pdo->prepare("UPDATE inventario_ubicacion SET anulado = 1 WHERE id = ?");
+        $stmt->execute([$id_delete]);
+        header("Location: ubicaciones.php?msg=deleted");
+        exit;
+    } catch (PDOException $e) {
+        $error = $e->getMessage();
+    }
+}
+
+$msg_success = '';
+if (isset($_GET['msg']) && $_GET['msg'] == 'deleted') {
+    $msg_success = "Ubicación eliminada correctamente.";
+}
 ?>
 <!DOCTYPE html>
 <html lang="es">
@@ -242,6 +260,20 @@ $current_page = 'inventario_ubicaciones';
                     </a>
                 </div>
 
+                <?php if ($msg_success): ?>
+                    <div class="alert alert-success"
+                        style="padding: 15px; border-radius: 8px; margin-bottom: 20px; background: #dcfce7; color: #166534; border: 1px solid #bbf7d0;">
+                        <i class="fas fa-check-circle"></i> <?php echo $msg_success; ?>
+                    </div>
+                <?php endif; ?>
+
+                <?php if (isset($error) && $error): ?>
+                    <div class="alert alert-danger"
+                        style="padding: 15px; border-radius: 8px; margin-bottom: 20px; background: #fee2e2; color: #991b1b; border: 1px solid #fecaca;">
+                        <i class="fas fa-exclamation-triangle"></i> <?php echo $error; ?>
+                    </div>
+                <?php endif; ?>
+
                 <div class="summary-grid-ubic">
                     <div class="u-card">
                         <div class="info">
@@ -321,8 +353,16 @@ $current_page = 'inventario_ubicaciones';
     <!-- Modals and script placeholders -->
     <script>
         function openCreateModal() { window.location.href = 'nueva_ubicacion.php'; }
-        function editUbicacion(id) { alert('Editar ubicación: ' + id); }
-        function deleteUbicacion(id) { if (confirm('¿Desea eliminar esta ubicación?')) alert('Eliminando: ' + id); }
+
+        function editUbicacion(id) {
+            window.location.href = 'editar_ubicacion.php?id=' + id;
+        }
+
+        function deleteUbicacion(id) {
+            if (confirm('¿Está seguro de eliminar esta bodega/ubicación? Esta acción no se puede deshacer.')) {
+                window.location.href = 'ubicaciones.php?delete=' + id;
+            }
+        }
     </script>
 
     <?php include $root . 'includes/scripts.php'; ?>

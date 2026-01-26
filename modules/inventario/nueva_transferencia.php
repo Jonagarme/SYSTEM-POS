@@ -3,7 +3,8 @@
  * New Stock Transfer Form - Nueva Transferencia
  */
 session_start();
-require_once '../../includes/db.php';
+$root = '../../';
+require_once $root . 'includes/db.php';
 
 // Fetch locations for dropdowns
 try {
@@ -42,16 +43,50 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
         $count = $stmt->fetchColumn() + 1;
         $numero_transferencia = $prefix . str_pad($count, 4, '0', STR_PAD_LEFT);
 
+        // Ensure a valid user_id for foreign key constraints
+        $creador_id = $_SESSION['user_id'] ?? null;
+
+        // Check if session user_id actually exists in usuarios
+        if ($creador_id) {
+            try {
+                $check_u = $pdo->prepare("SELECT id FROM usuarios WHERE id = ? AND activo = 1");
+                $check_u->execute([$creador_id]);
+                if (!$check_u->fetch()) {
+                    $creador_id = null;
+                }
+            } catch (Exception $ex) {
+                $creador_id = null;
+            }
+        }
+
+        if (!$creador_id) {
+            // Fallback: get the first available active user in usuarios
+            try {
+                $stmt_u = $pdo->query("SELECT id FROM usuarios WHERE activo = 1 ORDER BY id ASC LIMIT 1");
+                $creador_id = $stmt_u->fetchColumn();
+            } catch (Exception $ex) {
+                throw new Exception("Error al buscar usuario en la tabla 'usuarios': " . $ex->getMessage());
+            }
+        }
+
+        if (!$creador_id) {
+            throw new Exception("No existe ningún usuario activo en la tabla 'usuarios'. No se puede registrar la transferencia.");
+        }
+
         // Insert Master
         $stmt = $pdo->prepare("INSERT INTO inventario_transferenciastock 
-            (numero_transferencia, fecha_creacion, estado, tipo, observaciones, motivo, creadoDate, editadoDate, anulado, usuario_creacion_id, ubicacion_destino_id, ubicacion_origen_id) 
-            VALUES (:num, NOW(), 'PENDIENTE', 'MANUAL', :obs, :mot, NOW(), NOW(), 0, :user, :dest, :orig)");
+            (numero_transferencia, fecha_creacion, estado, tipo, observaciones, motivo, 
+             creadoDate, editadoDate, anulado, creadoPor_id, usuario_creacion_id, 
+             ubicacion_destino_id, ubicacion_origen_id) 
+            VALUES (:num, NOW(), 'PENDIENTE', 'MANUAL', :obs, :mot, 
+             NOW(), NOW(), 0, :u_cp, :u_cc, :dest, :orig)");
 
         $stmt->execute([
             ':num' => $numero_transferencia,
             ':obs' => $observaciones,
             ':mot' => $motivo,
-            ':user' => $_SESSION['user_id'] ?? 1, // Fallback to 1 if not set
+            ':u_cp' => $creador_id,
+            ':u_cc' => $creador_id,
             ':dest' => $destino_id,
             ':orig' => $origen_id
         ]);
@@ -707,8 +742,6 @@ $current_page = 'inventario_transferencias';
         </div>
     </div>
 
-    <?php include $root . 'includes/scripts.php'; ?>
-
     <style>
         /* New Styles for Multi-Step Modal */
         .step-container {
@@ -904,7 +937,7 @@ $current_page = 'inventario_transferencias';
 
         function searchProducts(q) {
             const resultsDiv = document.getElementById('search-results');
-            
+
             // Only show spinner if it's the first search or if search is taking long
             // To avoid flickering, we don't clear resultsDiv immediately if q is small
             if (q.length > 0 && q.length < 3) return; // Optional: wait for more chars
@@ -957,21 +990,31 @@ $current_page = 'inventario_transferencias';
             document.getElementById('modal-product-stock').value = parseFloat(p.stock).toFixed(2);
             document.getElementById('price-origin').value = parseFloat(p.price).toFixed(2);
 
-            // Reset Steps
-            document.getElementById('step-1').style.display = 'block';
-            document.getElementById('step-2').style.display = 'none';
-            document.getElementById('step-3').style.display = 'none';
-            document.getElementById('lotes-container').style.display = 'none';
-            document.getElementById('selected-lote-summary').style.display = 'none';
-
             document.getElementById('check-change-price').checked = false;
             document.getElementById('price-fields').style.display = 'none';
-
             document.getElementById('btn-add-final').disabled = true;
             document.getElementById('btn-add-final').style.background = '#a5b4fc';
             document.getElementById('btn-add-final').style.cursor = 'not-allowed';
 
             document.getElementById('product-modal').style.display = 'flex';
+
+            // IF PRODUCT DOES NOT MANAGE LOTS, SKIP STEP 1
+            if (p.manejaLote == 0) {
+                document.getElementById('step-1').style.display = 'none';
+                document.getElementById('step-2').style.display = 'block';
+                document.getElementById('step-3').style.display = 'block';
+                document.getElementById('max-lote-hint').innerText = `Stock total disponible: ${p.stock}`;
+                selectedLote = { id: 0, lote: 'N/A', caducidad_fmt: 'N/A', stock: p.stock };
+            } else {
+                document.getElementById('step-1').style.display = 'block';
+                document.getElementById('step-2').style.display = 'none';
+                document.getElementById('step-3').style.display = 'none';
+                document.getElementById('lotes-container').style.display = 'none';
+                document.getElementById('selected-lote-summary').style.display = 'none';
+                document.getElementById('btn-load-lotes').style.display = 'block';
+                document.getElementById('btn-load-lotes').disabled = false;
+                document.getElementById('btn-load-lotes').innerHTML = '<i class="fas fa-search"></i> Buscar Lotes Disponibles';
+            }
         }
 
         function loadLotes() {
@@ -1059,10 +1102,18 @@ $current_page = 'inventario_transferencias';
 
         function validateQty(total) {
             const btn = document.getElementById('btn-add-final');
-            if (total > 0 && selectedLote && total <= selectedLote.stock) {
-                btn.disabled = false;
-                btn.style.background = '#2563eb';
-                btn.style.cursor = 'pointer';
+            const maxAllowed = (currentProduct.manejaLote == 1) ? (selectedLote ? selectedLote.stock : 0) : currentProduct.stock;
+
+            if (total > 0 && total <= maxAllowed) {
+                if (currentProduct.manejaLote == 1 && !selectedLote) {
+                    btn.disabled = true;
+                    btn.style.background = '#a5b4fc';
+                    btn.style.cursor = 'not-allowed';
+                } else {
+                    btn.disabled = false;
+                    btn.style.background = '#2563eb';
+                    btn.style.cursor = 'pointer';
+                }
             } else {
                 btn.disabled = true;
                 btn.style.background = '#a5b4fc';
@@ -1107,7 +1158,7 @@ $current_page = 'inventario_transferencias';
                 fractions = parseFloat(document.getElementById('num-frac-f').value) || 0;
             }
 
-            if (selectedProducts.find(p => p.id === currentProduct.id && p.lote_id === selectedLote.id)) {
+            if (selectedProducts.find(p => p.id === currentProduct.id && p.lote_id === (selectedLote ? selectedLote.id : 0))) {
                 alert('Este producto con este lote ya ha sido agregado.');
                 return;
             }
@@ -1116,9 +1167,10 @@ $current_page = 'inventario_transferencias';
                 id: currentProduct.id,
                 nombre: currentProduct.nombre,
                 barcode: currentProduct.barcode,
-                lote_id: selectedLote.id,
-                lote_numero: selectedLote.lote,
-                lote_vencimiento: selectedLote.caducidad_fmt,
+                manejaLote: currentProduct.manejaLote,
+                lote_id: selectedLote ? selectedLote.id : 0,
+                lote_numero: selectedLote ? selectedLote.lote : 'N/A',
+                lote_vencimiento: selectedLote ? selectedLote.caducidad_fmt : 'N/A',
                 cantidad: totalUnits,
                 tipo_transferencia: transferType,
                 unidades_por_caja: unitsPerBox,
@@ -1176,7 +1228,7 @@ $current_page = 'inventario_transferencias';
         document.getElementById('transfer-form').addEventListener('submit', function (e) {
             e.preventDefault();
             if (selectedProducts.length === 0) {
-                alert('Debe agregar al menos un producto.');
+                showToast('Atención', 'Debe agregar al menos un producto para realizar la transferencia.', 'warning');
                 return;
             }
 
@@ -1187,22 +1239,38 @@ $current_page = 'inventario_transferencias';
             const btn = this.querySelector('.btn-create-nt');
             btn.disabled = true;
             btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Procesando...';
+            console.log('Sending transfer data:', Object.fromEntries(formData.entries()));
 
             fetch('nueva_transferencia.php', { method: 'POST', body: formData })
-                .then(res => res.json())
+                .then(res => {
+                    console.log('Response status:', res.status);
+                    return res.text().then(text => {
+                        try {
+                            return JSON.parse(text);
+                        } catch (e) {
+                            console.error('Invalid JSON response:', text);
+                            throw new Error('La respuesta del servidor no es un JSON válido.');
+                        }
+                    });
+                })
                 .then(data => {
+                    console.log('Response data:', data);
                     if (data.success) {
-                        alert(data.message);
-                        window.location.href = 'transferencias.php';
+                        showToast('¡Éxito!', data.message, 'success');
+                        setTimeout(() => {
+                            window.location.href = 'transferencias.php';
+                        }, 1500);
                     } else {
-                        alert('Error: ' + data.message);
+                        showToast('Error', data.message, 'error');
                         btn.disabled = false;
                         btn.innerHTML = '<i class="fas fa-save"></i> Crear Transferencia';
                     }
                 })
                 .catch(err => {
-                    alert('Error en la conexión.');
+                    console.error('Fetch error:', err);
+                    showToast('Error de Conexión', err.message || 'No se pudo comunicar con el servidor.', 'error');
                     btn.disabled = false;
+                    btn.innerHTML = '<i class="fas fa-save"></i> Crear Transferencia';
                 });
         });
 
@@ -1212,6 +1280,7 @@ $current_page = 'inventario_transferencias';
             if (event.target == document.getElementById('search-modal')) closeSearchModal();
         }
     </script>
+    <?php include $root . 'includes/scripts.php'; ?>
 </body>
 
 </html>
