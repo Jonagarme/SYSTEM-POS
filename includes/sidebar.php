@@ -125,6 +125,21 @@ $current_page = $current_page ?? '';
                                 style="color: #f59e0b; margin-right: 8px;"></i> Cierres Diarios</a></li>
                 </ul>
             </li>
+            <li
+                class="has-submenu <?php echo (strpos($current_page, 'contabilidad') !== false) ? 'open active' : ''; ?>">
+                <a href="#"><i class="fas fa-calculator"></i> <span>Contabilidad</span> <i
+                        class="fas fa-chevron-right arrow"></i></a>
+                <ul class="submenu">
+                    <li class="submenu-header"
+                        style="padding: 10px 20px 5px 52px; font-size: 0.65rem; color: #64748b; font-weight: 700; text-transform: uppercase;">
+                        Gestión Financiera</li>
+                    <li><a href="<?php echo $root; ?>modules/contabilidad/cobrar.php"><i class="fas fa-hand-holding-usd"
+                                style="font-size: 0.75rem; margin-right: 8px;"></i> Cuentas por Cobrar</a></li>
+                    <li><a href="<?php echo $root; ?>modules/contabilidad/pagar.php"><i
+                                class="fas fa-file-invoice-dollar" style="font-size: 0.75rem; margin-right: 8px;"></i>
+                            Cuentas por Pagar</a></li>
+                </ul>
+            </li>
 
             <li class="has-submenu <?php echo (strpos($current_page, 'usuarios') !== false) ? 'open active' : ''; ?>">
                 <a href="#"><i class="fas fa-user-shield"></i> <span>Usuarios</span> <i
