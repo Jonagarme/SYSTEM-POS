@@ -416,6 +416,51 @@ $date_now = date('d/m/Y H:i');
         .pos-toast.error i {
             color: #ef4444;
         }
+
+        /* Client Autocomplete Styles */
+        .client-autocomplete-results {
+            position: absolute;
+            top: 100%;
+            left: 0;
+            right: 0;
+            background: white;
+            border: 1px solid #e2e8f0;
+            border-radius: 8px;
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+            z-index: 1005;
+            max-height: 250px;
+            overflow-y: auto;
+            display: none;
+            margin-top: 5px;
+        }
+
+        .client-autocomplete-item {
+            padding: 10px 15px;
+            border-bottom: 1px solid #f1f5f9;
+            cursor: pointer;
+            transition: background 0.2s;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .client-autocomplete-item:last-child {
+            border-bottom: none;
+        }
+
+        .client-autocomplete-item:hover {
+            background: #f0f7ff;
+        }
+
+        .client-autocomplete-item .name {
+            font-weight: 700;
+            font-size: 0.9rem;
+            color: #1e293b;
+        }
+
+        .client-autocomplete-item .id {
+            font-size: 0.75rem;
+            color: #64748b;
+        }
     </style>
 </head>
 
@@ -494,11 +539,12 @@ $date_now = date('d/m/Y H:i');
                             </div>
                             <div class="panel-body">
                                 <div class="client-search-box">
-                                    <div class="input-with-icon" style="flex: 1;">
+                                    <div class="input-with-icon" style="flex: 1; position: relative;">
                                         <i class="fas fa-search"></i>
                                         <input type="text" class="form-control"
                                             placeholder="Buscar cliente por cédula, RUC o nombre..."
-                                            style="padding-left: 35px;">
+                                            style="padding-left: 35px;" autocomplete="off">
+                                        <div id="client-results-dropdown" class="client-autocomplete-results"></div>
                                     </div>
                                     <button class="btn btn-primary" id="btn-nuevo-cliente" title="Nuevo Cliente"><i
                                             class="fas fa-user-plus"></i></button>
@@ -1417,9 +1463,14 @@ $date_now = date('d/m/Y H:i');
                 });
         }, 300));
 
+        const clientResultsDropdown = document.getElementById('client-results-dropdown');
+
         clientSearchInput.addEventListener('input', debounce(function (e) {
             const query = e.target.value;
-            if (query.trim().length < 3) return;
+            if (query.trim().length < 3) {
+                clientResultsDropdown.style.display = 'none';
+                return;
+            }
 
             fetch(`search_api.php?action=search_clients&q=${encodeURIComponent(query)}`)
                 .then(r => r.json())
@@ -1428,17 +1479,40 @@ $date_now = date('d/m/Y H:i');
                     return await OfflineManager.searchClients(query);
                 })
                 .then(data => {
+                    clientResultsDropdown.innerHTML = '';
                     if (data.length > 0) {
-                        selectClient(data[0]);
-                        clientSearchInput.style.borderColor = '#10b981'; // Green feedback
+                        data.forEach(client => {
+                            const item = document.createElement('div');
+                            item.className = 'client-autocomplete-item';
+                            item.innerHTML = `
+                                <span class="name">${client.nombres} ${client.apellidos}</span>
+                                <span class="id"><i class="fas fa-id-card"></i> ${client.cedula_ruc}</span>
+                            `;
+                            item.onclick = () => {
+                                selectClient(client);
+                                clientResultsDropdown.style.display = 'none';
+                            };
+                            clientResultsDropdown.appendChild(item);
+                        });
+                        clientResultsDropdown.style.display = 'block';
+                        clientSearchInput.style.borderColor = '#10b981';
                     } else {
-                        clientSearchInput.style.borderColor = '#ef4444'; // Red feedback
+                        clientResultsDropdown.style.display = 'none';
+                        clientSearchInput.style.borderColor = '#ef4444';
                     }
                 })
                 .catch(err => {
                     console.error("Client search error:", err);
+                    clientResultsDropdown.style.display = 'none';
                 });
         }, 500));
+
+        // Close dropdown when clicking outside
+        document.addEventListener('click', (e) => {
+            if (!clientSearchInput.contains(e.target) && !clientResultsDropdown.contains(e.target)) {
+                clientResultsDropdown.style.display = 'none';
+            }
+        });
 
         function selectClient(client) {
             sales[activeSaleIndex].client = client;
@@ -1645,7 +1719,7 @@ $date_now = date('d/m/Y H:i');
                     console.log('external:', res.external);
                     console.log('sri_error:', res.sri_error);
                     console.log('═══════════════════════════════════════════');
-                    
+
                     if (res.success) {
                         // 3. Poblar Ticket Térmico
                         document.getElementById('t-cliente').innerText = saleData.data.razonSocialComprador;
@@ -1655,12 +1729,12 @@ $date_now = date('d/m/Y H:i');
 
                         // Set dynamic invoice number and SRI data
                         document.getElementById('t-numero').innerText = res.numero || '001-001-000000000';
-                        
+
                         // Usar el estado normalizado de la BD (res.estado_factura) en lugar de ext.estado
                         const estadoBD = String(res.estado_factura || 'PENDIENTE').toUpperCase();
                         const auth = res.numero_autorizacion || (res.external ? (res.external.numeroAutorizacion || res.external.autorizacion || res.external.claveAcceso) : null) || 'PENDIENTE';
                         const claveAcceso = (res.external && res.external.claveAcceso) || 'Generando...';
-                        
+
                         console.log('───────────────────────────────────────────');
                         console.log('DEBUG: Procesando ticket');
                         console.log('───────────────────────────────────────────');
@@ -1668,7 +1742,7 @@ $date_now = date('d/m/Y H:i');
                         console.log('auth:', auth);
                         console.log('claveAcceso:', claveAcceso);
                         console.log('───────────────────────────────────────────');
-                        
+
                         document.getElementById('t-clave').innerText = claveAcceso;
 
                         // Si ya está AUTORIZADA en la BD, mostrar inmediatamente
@@ -1745,7 +1819,7 @@ $date_now = date('d/m/Y H:i');
                         }
                     })
                     .catch(() => pollStatus(idFactura, attempts + 1));
-                    }, 2000);
+            }, 2000);
         }
 
         // Espera ~2.5s, consulta 1 vez, y solo si no autoriza inicia el polling
@@ -1763,7 +1837,7 @@ $date_now = date('d/m/Y H:i');
                         console.log('   - success:', data.success);
                         console.log('   - estado:', data.estado);
                         console.log('   - numeroAutorizacion:', data.numeroAutorizacion);
-                        
+
                         if (data.success && String(data.estado).toUpperCase() === 'AUTORIZADA') {
                             console.log('✅ ¡AUTORIZADA! Mostrando número de autorización inmediatamente');
                             badge.innerHTML = `<span class="text-success" style="word-break: break-all; font-size: 0.75rem;"><i class="fas fa-check-double"></i> ${data.numeroAutorizacion}</span>`;
