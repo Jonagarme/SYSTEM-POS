@@ -1,18 +1,85 @@
 <?php
-/**
- * Valued Inventory Report - Inventario Valorado
- */
 session_start();
 require_once '../../includes/db.php';
 
 $current_page = 'inventario';
 
-// Mock data
-$productos = [
-    ['codigo' => '7861148011999', 'nombre' => 'ABANIX 100MG SUSP FCO * 60ML', 'stock' => '25.00', 'costo' => '5.20', 'precio' => '7.75', 'valor_costo' => '130.00', 'valor_venta' => '193.75', 'margen' => '32.9%'],
-    ['codigo' => '7862101619832', 'nombre' => '3-DERMICO CREMA * 30 G.', 'stock' => '10.00', 'costo' => '1.50', 'precio' => '2.10', 'valor_costo' => '15.00', 'valor_venta' => '21.00', 'margen' => '28.5%'],
-    ['codigo' => '76313', 'nombre' => '*LACTOFAES BEBE GOTAS(3025)', 'stock' => '8.00', 'costo' => '12.40', 'precio' => '16.52', 'valor_costo' => '99.20', 'valor_venta' => '132.16', 'margen' => '24.9%'],
-];
+// Pagination settings
+$limit = 20;
+$page = isset($_GET['page']) ? (int) $_GET['page'] : 1;
+if ($page < 1)
+    $page = 1;
+$offset = ($page - 1) * $limit;
+
+// Fetch products with stock > 0 or all products? Usually valued repo is based on current stock.
+$search = isset($_GET['search']) ? $_GET['search'] : '';
+$where = " WHERE p.anulado = 0 AND p.stock > 0 ";
+$params = [];
+
+if ($search) {
+    $where .= " AND (p.nombre LIKE :search OR p.codigoPrincipal LIKE :search) ";
+    $params[':search'] = "%$search%";
+}
+
+// Grand totals for all products matching filters
+try {
+    $totals_query = "SELECT 
+        COUNT(*) as total_count,
+        SUM(p.stock * p.costoUnidad) as total_costo,
+        SUM(p.stock * p.precioVenta) as total_venta
+        FROM productos p 
+        $where";
+    $stmtTotals = $pdo->prepare($totals_query);
+    foreach ($params as $key => $val) {
+        $stmtTotals->bindValue($key, $val);
+    }
+    $stmtTotals->execute();
+    $totals_row = $stmtTotals->fetch(PDO::FETCH_ASSOC);
+
+    $total_records = (int) ($totals_row['total_count'] ?? 0);
+    $total_costo = (float) ($totals_row['total_costo'] ?? 0);
+    $total_venta = (float) ($totals_row['total_venta'] ?? 0);
+    $total_utilidad = $total_venta - $total_costo;
+
+    // Fetch products with pagination
+    $query = "SELECT p.* FROM productos p $where ORDER BY p.nombre ASC LIMIT :limit OFFSET :offset";
+    $stmt = $pdo->prepare($query);
+    $stmt->bindValue(':limit', $limit, PDO::PARAM_INT);
+    $stmt->bindValue(':offset', $offset, PDO::PARAM_INT);
+    foreach ($params as $key => $val) {
+        $stmt->bindValue($key, $val);
+    }
+    $stmt->execute();
+    $productos_raw = $stmt->fetchAll(PDO::FETCH_ASSOC);
+} catch (Exception $e) {
+    $total_records = 0;
+    $total_costo = 0;
+    $total_venta = 0;
+    $total_utilidad = 0;
+    $productos_raw = [];
+}
+
+$productos = [];
+foreach ($productos_raw as $p) {
+    $costo = (float) $p['costoUnidad'];
+    $precio = (float) $p['precioVenta'];
+    $stock = (float) $p['stock'];
+
+    $valor_costo = $stock * $costo;
+    $valor_venta = $stock * $precio;
+    $margen = $precio > 0 ? (($precio - $costo) / $precio) * 100 : 0;
+
+    $productos[] = [
+        'codigo' => $p['codigoPrincipal'],
+        'nombre' => $p['nombre'],
+        'stock' => number_format($stock, 2),
+        'costo' => number_format($costo, 4),
+        'precio' => number_format($precio, 4),
+        'valor_costo' => number_format($valor_costo, 2),
+        'valor_venta' => number_format($valor_venta, 2),
+        'margen' => number_format($margen, 1) . '%'
+    ];
+}
 ?>
 <!DOCTYPE html>
 <html lang="es">
@@ -155,6 +222,56 @@ $productos = [
             text-align: right;
             font-family: 'Inter', sans-serif;
         }
+
+        .filters-report {
+            background: white;
+            padding: 20px;
+            border-radius: 12px;
+            box-shadow: var(--shadow-sm);
+            margin-bottom: 25px;
+            display: flex;
+            gap: 15px;
+            align-items: flex-end;
+        }
+
+        /* Responsive */
+        @media (max-width: 992px) {
+            .valuation-grid {
+                grid-template-columns: repeat(2, 1fr);
+            }
+        }
+
+        @media (max-width: 768px) {
+            .val-header {
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 15px;
+            }
+
+            .val-header div {
+                width: 100%;
+                display: flex;
+            }
+
+            .val-header .btn {
+                flex: 1;
+            }
+
+            .filters-report {
+                flex-direction: column;
+                align-items: stretch;
+            }
+        }
+
+        @media (max-width: 576px) {
+            .valuation-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .val-table-container {
+                overflow-x: auto;
+            }
+        }
     </style>
 </head>
 
@@ -183,46 +300,49 @@ $productos = [
                     <div class="v-card v-cost">
                         <div class="info">
                             <h3>Valor Total (Costo)</h3>
-                            <div class="value">$ 244.20</div>
+                            <div class="value">$ <?php echo number_format($total_costo, 2); ?></div>
                         </div>
                         <div class="icon-box"><i class="fas fa-receipt"></i></div>
                     </div>
                     <div class="v-card v-sale">
                         <div class="info">
                             <h3>Valor Total (Venta)</h3>
-                            <div class="value">$ 346.91</div>
+                            <div class="value">$ <?php echo number_format($total_venta, 2); ?></div>
                         </div>
                         <div class="icon-box"><i class="fas fa-tags"></i></div>
                     </div>
                     <div class="v-card v-profit">
                         <div class="info">
                             <h3>Utilidad Estimada</h3>
-                            <div class="value">$ 102.71</div>
+                            <div class="value">$ <?php echo number_format($total_utilidad, 2); ?></div>
                         </div>
                         <div class="icon-box"><i class="fas fa-chart-line"></i></div>
                     </div>
                 </div>
 
-                <div class="filters-report"
-                    style="background: white; padding: 20px; border-radius: 12px; box-shadow: var(--shadow-sm); margin-bottom: 25px; display: flex; gap: 15px; align-items: flex-end;">
+                <form method="GET" class="filters-report">
                     <div style="flex: 2;">
                         <label
-                            style="display: block; font-size: 0.75rem; font-weight: 600; color: #64748b; margin-bottom: 8px;">Filtrar
-                            por Categoría / Ubicación</label>
-                        <select class="form-control">
-                            <option>Todas las categorías</option>
-                        </select>
+                            style="display: block; font-size: 0.75rem; font-weight: 600; color: #64748b; margin-bottom: 8px;">Buscar
+                            Producto</label>
+                        <input type="text" name="search" class="form-control" placeholder="Nombre o código..."
+                            value="<?php echo htmlspecialchars($search); ?>">
                     </div>
                     <div style="flex: 1;">
                         <label
-                            style="display: block; font-size: 0.75rem; font-weight: 600; color: #64748b; margin-bottom: 8px;">Ubicación</label>
+                            style="display: block; font-size: 0.75rem; font-weight: 600; color: #64748b; margin-bottom: 8px;">Ubicación
+                            (Demo)</label>
                         <select class="form-control">
                             <option>Todas las ubicaciones</option>
                         </select>
                     </div>
-                    <button class="btn btn-primary" style="height: 42px; padding: 0 30px;"><i class="fas fa-search"></i>
+                    <button type="submit" class="btn btn-primary" style="height: 42px; padding: 0 30px;"><i
+                            class="fas fa-search"></i>
                         Calcular</button>
-                </div>
+                    <a href="reporte_valorado.php" class="btn btn-outline"
+                        style="height: 42px; padding: 0 15px; display: flex; align-items: center;"><i
+                            class="fas fa-times"></i></a>
+                </form>
 
                 <div class="val-table-container">
                     <table class="val-table">
@@ -274,6 +394,44 @@ $productos = [
                         </tbody>
                     </table>
                 </div>
+
+                <?php if ($total_records > $limit): ?>
+                    <div
+                        style="margin-top: 25px; display: flex; justify-content: center; gap: 8px; flex-wrap: wrap; align-items: center;">
+                        <?php
+                        $total_pages = ceil($total_records / $limit);
+                        $query_params = $_GET;
+                        $range = 2;
+
+                        if ($page > 1):
+                            $query_params['page'] = 1; ?>
+                            <a href="?<?php echo http_build_query($query_params); ?>" class="btn btn-outline"
+                                style="padding: 5px 12px; height: auto; text-decoration: none;" title="Primera"><i
+                                    class="fas fa-angle-double-left"></i></a>
+                        <?php endif;
+
+                        for ($i = 1; $i <= $total_pages; $i++):
+                            if ($i == 1 || $i == $total_pages || ($i >= $page - $range && $i <= $page + $range)):
+                                $query_params['page'] = $i;
+                                ?>
+                                <a href="?<?php echo http_build_query($query_params); ?>"
+                                    class="btn <?php echo $page == $i ? 'btn-primary' : 'btn-outline'; ?>"
+                                    style="padding: 5px 12px; height: auto; min-width: 35px; text-align: center; text-decoration: none;">
+                                    <?php echo $i; ?>
+                                </a>
+                            <?php elseif ($i == $page - $range - 1 || $i == $page + $range + 1): ?>
+                                <span style="color: #64748b; padding: 0 5px;">...</span>
+                            <?php endif;
+                        endfor;
+
+                        if ($page < $total_pages):
+                            $query_params['page'] = $total_pages; ?>
+                            <a href="?<?php echo http_build_query($query_params); ?>" class="btn btn-outline"
+                                style="padding: 5px 12px; height: auto; text-decoration: none;" title="Última"><i
+                                    class="fas fa-angle-double-right"></i></a>
+                        <?php endif; ?>
+                    </div>
+                <?php endif; ?>
             </div>
         </main>
     </div>

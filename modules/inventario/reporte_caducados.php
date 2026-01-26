@@ -1,18 +1,113 @@
 <?php
-/**
- * Expired Products Report - Productos Caducados
- */
 session_start();
 require_once '../../includes/db.php';
 
 $current_page = 'inventario';
 
-// Mock data for expired products
-$productos = [
-    ['codigo' => '7861148011999', 'nombre' => 'ABANIX 100MG SUSP FCO * 60ML', 'lote' => 'L2305-A', 'vencimiento' => '2025-12-15', 'stock' => '5.00', 'status' => 'Vencido', 'status_class' => 'st-expired'],
-    ['codigo' => '7862101619832', 'nombre' => '3-DERMICO CREMA * 30 G.', 'lote' => 'D4412XP', 'vencimiento' => '2026-02-10', 'stock' => '12.00', 'status' => 'Próximo', 'status_class' => 'st-warning'],
-    ['codigo' => '76313', 'nombre' => '*LACTOFAES BEBE GOTAS(3025)', 'lote' => 'LOT-778', 'vencimiento' => '2026-06-22', 'stock' => '8.00', 'status' => 'Vigente', 'status_class' => 'st-ok'],
-];
+// Pagination settings
+$limit = 20;
+$page = isset($_GET['page']) ? (int) $_GET['page'] : 1;
+if ($page < 1)
+    $page = 1;
+$offset = ($page - 1) * $limit;
+
+// Search and filter parameters
+$search = isset($_GET['search']) ? $_GET['search'] : '';
+$estado = isset($_GET['estado']) ? $_GET['estado'] : '';
+$fecha_desde = isset($_GET['fecha_desde']) ? $_GET['fecha_desde'] : '';
+
+$where = " WHERE l.activo = 1 ";
+$params = [];
+
+if ($search) {
+    $where .= " AND (p.nombre LIKE :search OR p.codigoPrincipal LIKE :search OR l.numero_lote LIKE :search) ";
+    $params[':search'] = "%$search%";
+}
+
+if ($estado == 'Vencidos') {
+    $where .= " AND l.fecha_caducidad < CURDATE() ";
+} elseif ($estado == 'Próximos a vencer') {
+    $where .= " AND l.fecha_caducidad BETWEEN CURDATE() AND DATE_ADD(CURDATE(), INTERVAL 30 DAY) ";
+} elseif ($estado == 'Vigentes') {
+    $where .= " AND l.fecha_caducidad > DATE_ADD(CURDATE(), INTERVAL 30 DAY) ";
+}
+
+if ($fecha_desde) {
+    $where .= " AND l.fecha_caducidad >= :fecha_desde ";
+    $params[':fecha_desde'] = $fecha_desde;
+}
+
+// Stats and total count
+try {
+    $stats_query = "SELECT 
+        COUNT(*) as total_count,
+        SUM(CASE WHEN l.fecha_caducidad < CURDATE() THEN 1 ELSE 0 END) as vencidos,
+        SUM(CASE WHEN l.fecha_caducidad BETWEEN CURDATE() AND DATE_ADD(CURDATE(), INTERVAL 30 DAY) THEN 1 ELSE 0 END) as proximos,
+        SUM(CASE WHEN l.fecha_caducidad > DATE_ADD(CURDATE(), INTERVAL 30 DAY) THEN 1 ELSE 0 END) as vigentes
+        FROM inventario_loteproducto l
+        JOIN productos p ON l.producto_id = p.id
+        $where";
+    $stmtStats = $pdo->prepare($stats_query);
+    foreach ($params as $key => $val) {
+        $stmtStats->bindValue($key, $val);
+    }
+    $stmtStats->execute();
+    $stats_row = $stmtStats->fetch(PDO::FETCH_ASSOC);
+
+    $total_records = (int) ($stats_row['total_count'] ?? 0);
+    $stats = [
+        'vencidos' => $stats_row['vencidos'] ?? 0,
+        'proximos' => $stats_row['proximos'] ?? 0,
+        'vigentes' => $stats_row['vigentes'] ?? 0,
+        'total' => $total_records
+    ];
+
+    // Fetch products with lots and pagination
+    $query = "SELECT l.*, p.nombre as nombre, p.codigoPrincipal as codigo
+              FROM inventario_loteproducto l
+              JOIN productos p ON l.producto_id = p.id
+              $where
+              ORDER BY l.fecha_caducidad ASC
+              LIMIT :limit OFFSET :offset";
+
+    $stmt = $pdo->prepare($query);
+    $stmt->bindValue(':limit', $limit, PDO::PARAM_INT);
+    $stmt->bindValue(':offset', $offset, PDO::PARAM_INT);
+    foreach ($params as $key => $val) {
+        $stmt->bindValue($key, $val);
+    }
+    $stmt->execute();
+    $productos_raw = $stmt->fetchAll(PDO::FETCH_ASSOC);
+} catch (Exception $e) {
+    $total_records = 0;
+    $productos_raw = [];
+    $stats = ['vencidos' => 0, 'proximos' => 0, 'vigentes' => 0, 'total' => 0];
+}
+
+$productos = [];
+foreach ($productos_raw as $p) {
+    $vencimiento = new DateTime($p['fecha_caducidad']);
+    $hoy = new DateTime();
+    $diff = $hoy->diff($vencimiento);
+    $days = (int) $diff->format("%r%a");
+
+    if ($days < 0) {
+        $status = 'Vencido';
+        $status_class = 'st-expired';
+    } elseif ($days <= 30) {
+        $status = 'Próximo';
+        $status_class = 'st-warning';
+    } else {
+        $status = 'Vigente';
+        $status_class = 'st-ok';
+    }
+
+    $productos[] = array_merge($p, [
+        'status' => $status,
+        'status_class' => $status_class,
+        'stock' => $p['cantidad_disponible']
+    ]);
+}
 ?>
 <!DOCTYPE html>
 <html lang="es">
@@ -158,6 +253,48 @@ $productos = [
             background: #f0fdf4;
             color: #166534;
         }
+
+        /* Responsive */
+        @media (max-width: 992px) {
+            .summary-mini-grid {
+                grid-template-columns: repeat(2, 1fr);
+            }
+
+            .filters-report {
+                grid-template-columns: 1fr 1fr;
+            }
+        }
+
+        @media (max-width: 768px) {
+            .cad-header {
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 15px;
+            }
+
+            .cad-header div {
+                width: 100%;
+                display: flex;
+            }
+
+            .cad-header .btn {
+                flex: 1;
+            }
+        }
+
+        @media (max-width: 576px) {
+            .summary-mini-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .filters-report {
+                grid-template-columns: 1fr;
+            }
+
+            .cad-table-container {
+                overflow-x: auto;
+            }
+        }
     </style>
 </head>
 
@@ -186,43 +323,46 @@ $productos = [
 
                 <div class="summary-mini-grid">
                     <div class="s-mini-card border-red">
-                        <span class="val">1</span>
+                        <span class="val"><?php echo $stats['vencidos']; ?></span>
                         <span class="lbl">Productos Vencidos</span>
                     </div>
                     <div class="s-mini-card border-orange">
-                        <span class="val">1</span>
+                        <span class="val"><?php echo $stats['proximos']; ?></span>
                         <span class="lbl">Vencimiento Próximo (30 días)</span>
                     </div>
                     <div class="s-mini-card border-green">
-                        <span class="val">1</span>
+                        <span class="val"><?php echo $stats['vigentes']; ?></span>
                         <span class="lbl">Productos Vigentes</span>
                     </div>
                     <div class="s-mini-card border-blue">
-                        <span class="val">3</span>
+                        <span class="val"><?php echo $stats['total']; ?></span>
                         <span class="lbl">Total Lotes Revisados</span>
                     </div>
                 </div>
 
-                <div class="filters-report">
+                <form method="GET" class="filters-report">
                     <div>
                         <label>Buscar Producto / Lote</label>
-                        <input type="text" class="form-control" placeholder="Nombre, código o número de lote...">
+                        <input type="text" name="search" class="form-control"
+                            placeholder="Nombre, código o número de lote..."
+                            value="<?php echo htmlspecialchars($search); ?>">
                     </div>
                     <div>
                         <label>Rango de Vencimiento (Desde)</label>
-                        <input type="date" class="form-control">
+                        <input type="date" name="fecha_desde" class="form-control" value="<?php echo $fecha_desde; ?>">
                     </div>
                     <div>
                         <label>Estado</label>
-                        <select class="form-control">
-                            <option>Todos los estados</option>
-                            <option>Vencidos</option>
-                            <option>Próximos a vencer</option>
-                            <option>Vigentes</option>
+                        <select name="estado" class="form-control">
+                            <option value="">Todos los estados</option>
+                            <option <?php echo $estado == 'Vencidos' ? 'selected' : ''; ?>>Vencidos</option>
+                            <option <?php echo $estado == 'Próximos a vencer' ? 'selected' : ''; ?>>Próximos a vencer
+                            </option>
+                            <option <?php echo $estado == 'Vigentes' ? 'selected' : ''; ?>>Vigentes</option>
                         </select>
                     </div>
-                    <button class="btn btn-primary"><i class="fas fa-filter"></i> Filtrar</button>
-                </div>
+                    <button type="submit" class="btn btn-primary"><i class="fas fa-filter"></i> Filtrar</button>
+                </form>
 
                 <div class="cad-table-container">
                     <table class="cad-table">
@@ -247,10 +387,10 @@ $productos = [
                                         <?php echo $p['nombre']; ?>
                                     </td>
                                     <td style="font-family: monospace;">
-                                        <?php echo $p['lote']; ?>
+                                        <?php echo $p['numero_lote']; ?>
                                     </td>
                                     <td style="font-weight: 700; color: #1e293b;">
-                                        <?php echo date('d/m/Y', strtotime($p['vencimiento'])); ?>
+                                        <?php echo date('d/m/Y', strtotime($p['fecha_caducidad'])); ?>
                                     </td>
                                     <td style="text-align: right; font-weight: 700;">
                                         <?php echo $p['stock']; ?>
@@ -269,6 +409,44 @@ $productos = [
                         </tbody>
                     </table>
                 </div>
+
+                <?php if ($total_records > $limit): ?>
+                    <div
+                        style="margin-top: 25px; display: flex; justify-content: center; gap: 8px; flex-wrap: wrap; align-items: center;">
+                        <?php
+                        $total_pages = ceil($total_records / $limit);
+                        $query_params = $_GET;
+                        $range = 2; // Páginas a mostrar alrededor de la actual
+                    
+                        if ($page > 1):
+                            $query_params['page'] = 1; ?>
+                            <a href="?<?php echo http_build_query($query_params); ?>" class="btn btn-outline"
+                                style="padding: 5px 12px; height: auto; text-decoration: none;" title="Primera"><i
+                                    class="fas fa-angle-double-left"></i></a>
+                        <?php endif;
+
+                        for ($i = 1; $i <= $total_pages; $i++):
+                            if ($i == 1 || $i == $total_pages || ($i >= $page - $range && $i <= $page + $range)):
+                                $query_params['page'] = $i;
+                                ?>
+                                <a href="?<?php echo http_build_query($query_params); ?>"
+                                    class="btn <?php echo $page == $i ? 'btn-primary' : 'btn-outline'; ?>"
+                                    style="padding: 5px 12px; height: auto; min-width: 35px; text-align: center; text-decoration: none;">
+                                    <?php echo $i; ?>
+                                </a>
+                            <?php elseif ($i == $page - $range - 1 || $i == $page + $range + 1): ?>
+                                <span style="color: #64748b; padding: 0 5px;">...</span>
+                            <?php endif;
+                        endfor;
+
+                        if ($page < $total_pages):
+                            $query_params['page'] = $total_pages; ?>
+                            <a href="?<?php echo http_build_query($query_params); ?>" class="btn btn-outline"
+                                style="padding: 5px 12px; height: auto; text-decoration: none;" title="Última"><i
+                                    class="fas fa-angle-double-right"></i></a>
+                        <?php endif; ?>
+                    </div>
+                <?php endif; ?>
             </div>
         </main>
     </div>

@@ -170,7 +170,7 @@ $current_page = 'inventario';
                     </a>
 
                     <!-- Movements Report -->
-                    <a href="reporte_movimientos.php" class="report-card">
+                    <a href="kardex.php" class="report-card">
                         <div class="report-icon" style="background: #fdf2f8; color: #db2777;"><i
                                 class="fas fa-exchange-alt"></i></div>
                         <div class="report-info">
