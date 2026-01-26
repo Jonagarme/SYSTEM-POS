@@ -38,14 +38,19 @@ try {
     $secuencial = $punto['secuencial_factura'];
     $numFactura = $codEst . "-" . $codPunto . "-" . str_pad($secuencial, 9, '0', STR_PAD_LEFT);
 
+    // 2. Obtener sesión de caja abierta
+    $stmtCaja = $pdo->query("SELECT id FROM cierres_caja WHERE estado = 'ABIERTA' ORDER BY fechaApertura DESC LIMIT 1");
+    $idCierreCaja = $stmtCaja->fetchColumn();
+
     // 2. Insertar en facturas_venta (estado inicial PENDIENTE hasta que SRI autorice)
     $stmt = $pdo->prepare("INSERT INTO facturas_venta 
-        (idCliente, idUsuario, numeroFactura, fechaEmision, subtotal, descuento, iva, total, estado, estadoFactura, creadoPor, creadoDate) 
-        VALUES (?, ?, ?, NOW(), ?, ?, ?, ?, 'PAGADA', 'PENDIENTE', ?, NOW())");
+        (idCliente, idUsuario, idCierreCaja, numeroFactura, fechaEmision, subtotal, descuento, iva, total, estado, estadoFactura, creadoPor, creadoDate) 
+        VALUES (?, ?, ?, ?, NOW(), ?, ?, ?, ?, 'PAGADA', 'PENDIENTE', ?, NOW())");
 
     $stmt->execute([
         $data['cliente_id'] ?? 275,
         $usuario_id,
+        $idCierreCaja ?: null,
         $numFactura,
         $venta['totalSinImpuestos'],
         $venta['totalDescuento'],
