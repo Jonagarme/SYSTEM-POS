@@ -18,8 +18,10 @@ if ($id > 0) {
     }
 }
 
-// Fetch categories and labs for selects
+// Fetch categories, labs, and brands for selects
 $categorias = $pdo->query("SELECT id, nombre FROM categorias ORDER BY nombre ASC")->fetchAll();
+$marcas = $pdo->query("SELECT id, nombre FROM marcas WHERE anulado = 0 ORDER BY nombre ASC")->fetchAll();
+$laboratorios = $pdo->query("SELECT id, nombre FROM laboratorios WHERE activo = 1 ORDER BY nombre ASC")->fetchAll();
 ?>
 <!DOCTYPE html>
 <html lang="es">
@@ -160,17 +162,20 @@ $categorias = $pdo->query("SELECT id, nombre FROM categorias ORDER BY nombre ASC
                             </div>
                             <div class="form-group col-4">
                                 <label>Marca</label>
-                                <input type="text" name="marca"
-                                    value="<?php echo htmlspecialchars($product['marca'] ?? ''); ?>"
-                                    placeholder="Marca...">
+                                <select name="marca_id">
+                                    <option value="">Seleccionar marca...</option>
+                                    <?php foreach ($marcas as $m): ?>
+                                        <option value="<?php echo $m['id']; ?>" <?php echo (isset($product['idMarca']) && $product['idMarca'] == $m['id']) ? 'selected' : ''; ?>>
+                                            <?php echo htmlspecialchars($m['nombre']); ?>
+                                        </option>
+                                    <?php endforeach; ?>
+                                </select>
                             </div>
-                            <div class="form-group col-4">
+                            <div class=" form-group col-4">
                                 <label>Laboratorio</label>
                                 <select name="laboratorio_id">
                                     <option value="">Seleccionar laboratorio...</option>
-                                    <?php
-                                    $labs = $pdo->query("SELECT id, nombre FROM laboratorios WHERE activo = 1 ORDER BY nombre ASC")->fetchAll();
-                                    foreach ($labs as $lab): ?>
+                                    <?php foreach ($laboratorios as $lab): ?>
                                         <option value="<?php echo $lab['id']; ?>" <?php echo (isset($product['idLaboratorio']) && $product['idLaboratorio'] == $lab['id']) ? 'selected' : ''; ?>>
                                             <?php echo htmlspecialchars($lab['nombre']); ?>
                                         </option>
@@ -212,7 +217,7 @@ $categorias = $pdo->query("SELECT id, nombre FROM categorias ORDER BY nombre ASC
                                 <label>Costo por Unidad *</label>
                                 <div class="input-currency"><span>$</span><input type="number" name="precio_compra"
                                         step="0.0001"
-                                        value="<?php echo number_format($product['precioCompra'] ?? 0, 4, '.', ''); ?>"
+                                        value="<?php echo number_format($product['costoUnidad'] ?? 0, 4, '.', ''); ?>"
                                         required></div>
                             </div>
                             <div class="form-group col-3">
@@ -226,7 +231,8 @@ $categorias = $pdo->query("SELECT id, nombre FROM categorias ORDER BY nombre ASC
                                 <label>PVP Unidad</label>
                                 <div class="input-currency"><span>$</span><input type="number" name="pvp_unidad"
                                         step="0.0001"
-                                        value="<?php echo number_format($product['pvp'] ?? 0, 4, '.', ''); ?>"></div>
+                                        value="<?php echo number_format($product['pvpUnidad'] ?? 0, 4, '.', ''); ?>">
+                                </div>
                             </div>
                             <div class="form-group col-3">
                                 <label>Precio de Venta *</label>
@@ -308,7 +314,7 @@ $categorias = $pdo->query("SELECT id, nombre FROM categorias ORDER BY nombre ASC
                             </div>
                             <div class="switch-item">
                                 <label class="switch">
-                                    <input type="checkbox" name="cadena_frio" <?php echo (isset($product['cadenaFrio']) && $product['cadenaFrio']) ? 'checked' : ''; ?>>
+                                    <input type="checkbox" name="cadena_frio" <?php echo (isset($product['requiereCadenaFrio']) && $product['requiereCadenaFrio']) ? 'checked' : ''; ?>>
                                     <span class="slider"></span>
                                 </label>
                                 <div class="switch-lbl">
@@ -316,9 +322,19 @@ $categorias = $pdo->query("SELECT id, nombre FROM categorias ORDER BY nombre ASC
                                     <span>Requiere refrigeración</span>
                                 </div>
                             </div>
+                            <div class="switch-item">
+                                <label class="switch">
+                                    <input type="checkbox" name="maneja_lote" <?php echo (!isset($product['manejaLote']) || $product['manejaLote']) ? 'checked' : ''; ?>>
+                                    <span class="slider"></span>
+                                </label>
+                                <div class="switch-lbl">
+                                    <strong>Maneja Lote</strong>
+                                    <span>Control de inventario por lotes</span>
+                                </div>
+                            </div>
                             <div class="switch-item active-stock">
                                 <label class="switch">
-                                    <input type="checkbox" name="estado" <?php echo (!isset($product['estado']) || $product['estado']) ? 'checked' : ''; ?>>
+                                    <input type="checkbox" name="estado" <?php echo (!isset($product['activo']) || $product['activo']) ? 'checked' : ''; ?>>
                                     <span class="slider"></span>
                                 </label>
                                 <div class="switch-lbl">

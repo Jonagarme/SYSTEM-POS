@@ -2,12 +2,29 @@
 /**
  * Logic to save or update a product
  */
+session_start();
 require_once '../../includes/db.php';
 header('Content-Type: application/json');
 
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     echo json_encode(['status' => 'error', 'message' => 'Método no permitido']);
     exit;
+}
+
+// Auto-migration: Ensure missing columns exist
+try {
+    $cols_to_check = [
+        'manejaLote' => "ALTER TABLE productos ADD COLUMN manejaLote TINYINT(1) DEFAULT 1 AFTER requiereSeguimiento"
+    ];
+
+    foreach ($cols_to_check as $col => $sql) {
+        $check = $pdo->query("SHOW COLUMNS FROM productos LIKE '$col'");
+        if (!$check->fetch()) {
+            $pdo->exec($sql);
+        }
+    }
+} catch (Exception $e) {
+    // Silently continue
 }
 
 // 1. Recibir y Sanitizar Datos
@@ -20,10 +37,10 @@ $descripcion = trim($_POST['descripcion'] ?? '');
 $observaciones = trim($_POST['observaciones'] ?? '');
 $categoria_id = !empty($_POST['categoria_id']) ? intval($_POST['categoria_id']) : null;
 $laboratorio_id = !empty($_POST['laboratorio_id']) ? intval($_POST['laboratorio_id']) : null;
-$marca = trim($_POST['marca'] ?? '');
+$marca_id = !empty($_POST['marca_id']) ? intval($_POST['marca_id']) : null;
 $costo = floatval($_POST['precio_compra'] ?? 0);
 $precio = floatval($_POST['precio_venta'] ?? 0);
-$pvp = floatval($_POST['pvp_unidad'] ?? 0);
+$pvp_unidad = floatval($_POST['pvp_unidad'] ?? 0);
 $costo_caja = floatval($_POST['costo_caja'] ?? 0);
 $stock_actual = floatval($_POST['stock_actual'] ?? 0);
 $stock_minimo = floatval($_POST['stock_minimo'] ?? 0);
@@ -31,8 +48,15 @@ $stock_maximo = floatval($_POST['stock_maximo'] ?? 0);
 $fecha_caducidad = !empty($_POST['fecha_caducidad']) ? $_POST['fecha_caducidad'] : null;
 $es_divisible = isset($_POST['es_divisible']) ? 1 : 0;
 $es_psicotropico = isset($_POST['es_psicotropico']) ? 1 : 0;
-$cadena_frio = isset($_POST['cadena_frio']) ? 1 : 0;
-$estado = isset($_POST['estado']) ? 1 : 0;
+$requiere_cadena_frio = isset($_POST['cadena_frio']) ? 1 : 0;
+$maneja_lote = isset($_POST['maneja_lote']) ? 1 : 0;
+$activo = isset($_POST['estado']) ? 1 : 0;
+
+$user_id = $_SESSION['user_id'] ?? null;
+if (!$user_id) {
+    $stmt_u = $pdo->query("SELECT id FROM auth_user LIMIT 1");
+    $user_id = $stmt_u->fetchColumn() ?: 1;
+}
 
 // 2. Validaciones
 $errors = [];
@@ -62,11 +86,11 @@ try {
         // UPDATE
         $sql = "UPDATE productos SET 
                     codigoPrincipal = ?, codigoAuxiliar = ?, nombre = ?, registroSanitario = ?,
-                    descripcion = ?, observaciones = ?, idCategoria = ?, idLaboratorio = ?, marca = ?,
-                    precioCompra = ?, precioVenta = ?, pvp = ?, costoCaja = ?,
+                    descripcion = ?, observaciones = ?, idCategoria = ?, idLaboratorio = ?, idMarca = ?,
+                    costoUnidad = ?, precioVenta = ?, pvpUnidad = ?, costoCaja = ?,
                     stockMinimo = ?, stockMaximo = ?, fechaCaducidad = ?,
-                    esDivisible = ?, esPsicotropico = ?, cadenaFrio = ?, estado = ?,
-                    actualizadoDate = NOW()
+                    esDivisible = ?, esPsicotropico = ?, requiereCadenaFrio = ?, manejaLote = ?, activo = ?,
+                    editadoDate = NOW(), editadoPor = ?
                 WHERE id = ?";
 
         $stmt = $pdo->prepare($sql);
@@ -79,18 +103,20 @@ try {
             $observaciones,
             $categoria_id,
             $laboratorio_id,
-            $marca,
+            $marca_id,
             $costo,
             $precio,
-            $pvp,
+            $pvp_unidad,
             $costo_caja,
             $stock_minimo,
             $stock_maximo,
             $fecha_caducidad,
             $es_divisible,
             $es_psicotropico,
-            $cadena_frio,
-            $estado,
+            $requiere_cadena_frio,
+            $maneja_lote,
+            $activo,
+            $user_id,
             $id
         ]);
         $message = "Producto actualizado correctamente";
@@ -98,18 +124,18 @@ try {
         // INSERT
         $sql = "INSERT INTO productos (
                     codigoPrincipal, codigoAuxiliar, nombre, registroSanitario, 
-                    descripcion, observaciones, idCategoria, idLaboratorio, marca,
-                    precioCompra, precioVenta, pvp, costoCaja, stock, 
+                    descripcion, observaciones, idCategoria, idLaboratorio, idMarca,
+                    costoUnidad, precioVenta, pvpUnidad, costoCaja, stock, 
                     stockMinimo, stockMaximo, fechaCaducidad, 
-                    esDivisible, esPsicotropico, cadenaFrio, estado,
-                    creadoDate, anulado
+                    esDivisible, esPsicotropico, requiereCadenaFrio, manejaLote, activo,
+                    creadoDate, creadoPor, idTipoProducto, idClaseProducto, idSubcategoria, idSubnivel, anulado
                 ) VALUES (
                     ?, ?, ?, ?, 
                     ?, ?, ?, ?, ?,
                     ?, ?, ?, ?, ?,
                     ?, ?, ?, 
-                    ?, ?, ?, ?,
-                    NOW(), 0
+                    ?, ?, ?, ?, ?,
+                    NOW(), ?, 1, 1, 1, NULL, 0
                 )";
 
         $stmt = $pdo->prepare($sql);
@@ -122,10 +148,10 @@ try {
             $observaciones,
             $categoria_id,
             $laboratorio_id,
-            $marca,
+            $marca_id,
             $costo,
             $precio,
-            $pvp,
+            $pvp_unidad,
             $costo_caja,
             $stock_actual,
             $stock_minimo,
@@ -133,8 +159,10 @@ try {
             $fecha_caducidad,
             $es_divisible,
             $es_psicotropico,
-            $cadena_frio,
-            $estado
+            $requiere_cadena_frio,
+            $maneja_lote,
+            $activo,
+            $user_id
         ]);
         $id = $pdo->lastInsertId();
         $message = "Producto creado correctamente";

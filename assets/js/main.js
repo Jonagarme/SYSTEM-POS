@@ -81,3 +81,65 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 });
+
+/**
+ * Show Premium Toast Notification
+ * @param {string} title 
+ * @param {string} message 
+ * @param {string} type (success, error, warning, info)
+ */
+function showToast(title, message, type = 'success') {
+    let container = document.querySelector('.toast-container');
+    if (!container) {
+        container = document.createElement('div');
+        container.className = 'toast-container';
+        document.body.appendChild(container);
+    }
+
+    const toast = document.createElement('div');
+    toast.className = `toast ${type}`;
+    
+    const icons = {
+        success: 'fa-check-circle',
+        error: 'fa-times-circle',
+        warning: 'fa-exclamation-triangle',
+        info: 'fa-info-circle'
+    };
+
+    toast.innerHTML = `
+        <div class="toast-icon">
+            <i class="fas ${icons[type] || 'fa-info-circle'}"></i>
+        </div>
+        <div class="toast-content">
+            <div class="toast-title">${title}</div>
+            <div class="toast-message">${message}</div>
+        </div>
+        <div class="toast-close">
+            <i class="fas fa-times"></i>
+        </div>
+    `;
+
+    container.appendChild(toast);
+
+    // Show with a tiny delay for animation
+    setTimeout(() => toast.classList.add('show'), 10);
+
+    // Auto remove
+    const timer = setTimeout(() => {
+        closeToast(toast);
+    }, 5000);
+
+    // Manual close
+    toast.querySelector('.toast-close').addEventListener('click', () => {
+        clearTimeout(timer);
+        closeToast(toast);
+    });
+}
+
+function closeToast(toast) {
+    toast.classList.remove('show');
+    setTimeout(() => {
+        toast.remove();
+    }, 400);
+}
+

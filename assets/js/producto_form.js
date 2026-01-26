@@ -100,16 +100,21 @@ document.addEventListener('DOMContentLoaded', () => {
                 const result = await response.json();
                 
                 if (result.status === 'success') {
-                    alert('¡Éxito! ' + result.message);
-                    window.location.href = 'index.php';
+                    showToast('¡Operación Exitosa!', result.message, 'success');
+                    setTimeout(() => {
+                        window.location.href = 'index.php';
+                    }, 1500);
                 } else {
-                    alert('Error: ' + result.message);
+                    showToast('Error de Sistema', result.message, 'error');
                     btnSave.disabled = false;
                     btnSave.innerHTML = originalText;
                 }
             } catch (error) {
                 console.error('Error:', error);
-                alert('Ocurrió un error al procesar la solicitud.');
+                showToast('Error de Conexión', 'Ocurrió un error al procesar la solicitud.', 'error');
+                const btnSave = form.querySelector('button[type="submit"]');
+                btnSave.disabled = false;
+                btnSave.innerHTML = '<i class="fas fa-save"></i> Intentar de nuevo';
             }
         });
     }
