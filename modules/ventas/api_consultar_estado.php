@@ -156,9 +156,7 @@ try {
 
         // Si aún no hay autorización pero sí clave, guardarla para futuras consultas
         if ((empty($claveAcceso) || strlen((string) $claveAcceso) < 40) && !empty($claveRemote) && strlen((string) $claveRemote) >= 40) {
-            $pdo->prepare("UPDATE facturas_venta SET estadoFactura = 'PROCESANDO', numeroAutorizacion = ? WHERE id = ?")
-                ->execute([$claveRemote, $id]);
-            $claveAcceso = $claveRemote;
+            $claveAcceso = $claveRemote; // Se usa para la consultaSRI de abajo, pero NO se guarda en DB local
         }
     }
 
@@ -216,6 +214,13 @@ try {
             if (function_exists('db_has_column') && db_has_column($pdo, 'facturas_venta', 'respuesta_sri')) {
                 $set[] = 'respuesta_sri = ?';
                 $params[] = json_encode($res);
+            }
+            if (function_exists('db_has_column') && db_has_column($pdo, 'facturas_venta', 'claveAcceso')) {
+                $clave = $res['claveAcceso'] ?? $claveAcceso;
+                if ($clave) {
+                    $set[] = 'claveAcceso = ?';
+                    $params[] = (string) $clave;
+                }
             }
             $params[] = $id;
             $pdo->prepare('UPDATE facturas_venta SET ' . implode(', ', $set) . ' WHERE id = ?')

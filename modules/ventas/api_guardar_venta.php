@@ -149,6 +149,8 @@ try {
             $venta['establecimiento'] = $partesNum[0];
             $venta['puntoEmision'] = $partesNum[1];
             $venta['secuencial'] = $partesNum[2];
+            $venta['identificacionEmisor'] = $empresa['ruc'] ?? '0915912604001';
+            $venta['razonSocialEmisor'] = $empresa['razon_social'] ?? 'GOMEZ SANCHEZ CELIDA SABINA';
             $venta['ambiente'] = ($empresa['sri_ambiente'] == 2) ? 2 : 1;
             $venta['tipoEmision'] = "1";
             $venta['obligadoContabilidad'] = (isset($empresa['obligado_contabilidad']) && ($empresa['obligado_contabilidad'] == '1' || $empresa['obligado_contabilidad'] == 'SI')) ? "SI" : "NO";
@@ -206,6 +208,18 @@ try {
                 $sriEstado = strtoupper((string) $external_res['estado']);
                 $authNumber = $external_res['numeroAutorizacion'] ?? $external_res['autorizacion'] ?? $external_res['claveAcceso'] ?? null;
 
+                // SI NO ESTÁ AUTORIZADA TODAVÍA, esperar 2 segundos e intentar una consulta rápida
+                // Esto ayuda a que en el POS salga AUTORIZADA "enseguida"
+                if (!in_array($sriEstado, ['AUTORIZADO', 'AUTORIZADA']) && !empty($authNumber)) {
+                    sleep(2);
+                    $resCheck = LogifactAPI::consultaSRI((string) $authNumber);
+                    if (isset($resCheck['estado'])) {
+                        $sriEstado = strtoupper((string) $resCheck['estado']);
+                        $authNumber = $resCheck['numeroAutorizacion'] ?? $resCheck['autorizacion'] ?? $authNumber;
+                        $external_res = array_merge($external_res, $resCheck); // Mezclar para el retorno
+                    }
+                }
+
                 error_log("Estado normalizado: $sriEstado | Auth: " . ($authNumber ? substr((string) $authNumber, 0, 20) . '...' : 'NO AUTH'));
 
                 if (is_array($authNumber)) {
@@ -216,7 +230,7 @@ try {
                 $dbEstado = 'PENDIENTE';
                 if ($sriEstado === 'AUTORIZADO' || $sriEstado === 'AUTORIZADA') {
                     $dbEstado = 'AUTORIZADA';
-                } elseif ($sriEstado === 'DEVUELTA' || $sriEstado === 'NO AUTORIZADO' || $sriEstado === 'RECHAZADO') {
+                } elseif ($sriEstado === 'DEVUELTA' || $sriEstado === 'NO AUTORIZADO' || $sriEstado === 'RECHAZADO' || $sriEstado === 'ERROR_TECNICO' || $sriEstado === 'ERROR') {
                     $dbEstado = 'RECHAZADO';
                 } elseif (in_array($sriEstado, ['PROCESANDO', 'RECIBIDA', 'EN PROCESO'], true)) {
                     $dbEstado = 'PROCESANDO';
@@ -226,7 +240,8 @@ try {
                 $setParts = ['estadoFactura = ?'];
                 $paramsUpd = [$dbEstado];
 
-                if (!empty($authNumber)) {
+                // SOLO guardar número de autorización si el estado es AUTORIZADA
+                if ($dbEstado === 'AUTORIZADA' && !empty($authNumber)) {
                     $setParts[] = 'numeroAutorizacion = ?';
                     $paramsUpd[] = (string) $authNumber;
                 }
@@ -238,6 +253,13 @@ try {
                 if (function_exists('db_has_column') && db_has_column($pdo, 'facturas_venta', 'respuesta_sri')) {
                     $setParts[] = 'respuesta_sri = ?';
                     $paramsUpd[] = json_encode($external_res);
+                }
+
+                // NUEVO: Guardar claveAcceso si la columna existe
+                $claveFinal = $external_res['claveAcceso'] ?? (strlen((string) $authNumber) >= 49 ? $authNumber : null);
+                if ($claveFinal && function_exists('db_has_column') && db_has_column($pdo, 'facturas_venta', 'claveAcceso')) {
+                    $setParts[] = 'claveAcceso = ?';
+                    $paramsUpd[] = (string) $claveFinal;
                 }
 
                 $paramsUpd[] = $idVenta;

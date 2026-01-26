@@ -226,11 +226,15 @@ try {
 
         // PROCESANDO/RECIBIDA: es un estado normal (no error)
         if (in_array($msgStatus, ['PROCESANDO', 'RECIBIDA', 'EN PROCESO', 'PENDIENTE'], true)) {
-            $set = ["estadoFactura = 'PROCESANDO'", 'numeroAutorizacion = ?'];
-            $params = [$auth];
+            $set = ["estadoFactura = 'PROCESANDO'"];
+            $params = [];
             if (function_exists('db_has_column') && db_has_column($pdo, 'facturas_venta', 'respuesta_sri')) {
                 $set[] = 'respuesta_sri = ?';
                 $params[] = json_encode($res);
+            }
+            if (!empty($auth) && function_exists('db_has_column') && db_has_column($pdo, 'facturas_venta', 'claveAcceso')) {
+                $set[] = 'claveAcceso = ?';
+                $params[] = (string) $auth;
             }
             $params[] = $id;
             $pdo->prepare('UPDATE facturas_venta SET ' . implode(', ', $set) . ' WHERE id = ?')
@@ -247,9 +251,9 @@ try {
         }
 
         // Estados de rechazo/devuelta: sí son error
-        $dbEstado = ($msgStatus === 'DEVUELTA' || $msgStatus === 'NO AUTORIZADO' || $msgStatus === 'RECHAZADO') ? 'RECHAZADO' : $msgStatus;
-        $pdo->prepare("UPDATE facturas_venta SET estadoFactura = ?, numeroAutorizacion = ? WHERE id = ?")
-            ->execute([$dbEstado, $auth, $id]);
+        $dbEstado = ($msgStatus === 'DEVUELTA' || $msgStatus === 'NO AUTORIZADO' || $msgStatus === 'RECHAZADO' || $msgStatus === 'ERROR_TECNICO' || $msgStatus === 'ERROR') ? 'RECHAZADO' : $msgStatus;
+        $pdo->prepare("UPDATE facturas_venta SET estadoFactura = ? WHERE id = ?")
+            ->execute([$dbEstado, $id]);
 
         throw new Exception($msg);
     }
@@ -272,6 +276,13 @@ try {
             if (function_exists('db_has_column') && db_has_column($pdo, 'facturas_venta', 'respuesta_sri')) {
                 $set[] = 'respuesta_sri = ?';
                 $params[] = json_encode($res);
+            }
+            if (function_exists('db_has_column') && db_has_column($pdo, 'facturas_venta', 'claveAcceso')) {
+                $clave = $res['claveAcceso'] ?? $auth;
+                if ($clave) {
+                    $set[] = 'claveAcceso = ?';
+                    $params[] = (string) $clave;
+                }
             }
             $params[] = $id;
             $pdo->prepare('UPDATE facturas_venta SET ' . implode(', ', $set) . ' WHERE id = ?')

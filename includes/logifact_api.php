@@ -168,14 +168,10 @@ class LogifactAPI
 
         error_log("HTTP Code: $http_code - Response: " . substr($response, 0, 200));
 
-        // Si retorna HTML con JavaScript (protección anti-bot), no podemos continuar
+        // Si retorna HTML con JavaScript (protección anti-bot), intentar con token
         if (stripos($response, '<script') !== false && stripos($response, 'slowAES') !== false) {
-            error_log("Detectada protección anti-bot - No se puede procesar con PHP/CURL");
-            return [
-                'error' => 'El servidor requiere validación de navegador que no puede ser realizada automáticamente.',
-                'estado' => 'ERROR',
-                'info' => 'Necesitas acceder manualmente al sitio o usar credenciales/API key válidas.'
-            ];
+            error_log("Detectada protección anti-bot en consulta SRI, reintentando con token...");
+            return self::consultaSRIConToken($clave);
         }
 
         if ($http_code !== 200) {
