@@ -17,46 +17,40 @@ try {
     error_log("Error al cargar clientes: " . $e->getMessage());
 }
 
-// Dummy data for initial UI demonstration
-$cuentas = [
-    [
-        'id' => 1,
-        'cliente' => 'Juan Pérez',
-        'fecha' => '2026-01-15',
-        'vencimiento' => '2026-02-15',
-        'total' => 150.50,
-        'saldo' => 50.50,
-        'estado' => 'Pendiente',
-        'status_class' => 'status-pending'
-    ],
-    [
-        'id' => 2,
-        'cliente' => 'María García',
-        'fecha' => '2026-01-20',
-        'vencimiento' => '2026-02-20',
-        'total' => 300.00,
-        'saldo' => 300.00,
-        'estado' => 'Vencida',
-        'status_class' => 'status-overdue'
-    ],
-    [
-        'id' => 3,
-        'cliente' => 'Empresa ABC S.A.',
-        'fecha' => '2026-01-10',
-        'vencimiento' => '2026-02-10',
-        'total' => 1200.00,
-        'saldo' => 0.00,
-        'estado' => 'Pagada',
-        'status_class' => 'status-paid'
-    ]
+// Cargar cuentas por cobrar desde la base de datos
+$cuentas = [];
+$totales = [
+    'total_cartera' => 0,
+    'por_cobrar' => 0,
+    'vencido' => 0,
+    'cobrado' => 0
 ];
 
-$totales = [
-    'total_cartera' => 1650.50,
-    'por_cobrar' => 350.50,
-    'vencido' => 300.00,
-    'cobrado' => 1300.00
-];
+try {
+    $stmt = $pdo->query("SELECT c.*, CONCAT(cl.nombres, ' ', cl.apellidos) as cliente_nombre
+                         FROM contabilidad_cuentaporcobrar c
+                         JOIN clientes cl ON c.cliente_id = cl.id
+                         ORDER BY c.fecha_vencimiento ASC");
+    $cuentas = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+    $now = date('Y-m-d');
+    foreach ($cuentas as &$c) {
+        $totales['total_cartera'] += $c['monto_original'];
+        $totales['por_cobrar'] += $c['monto_pendiente'];
+        $totales['cobrado'] += ($c['monto_original'] - $c['monto_pendiente']);
+
+        if ($c['estado'] !== 'PAGADA' && $c['fecha_vencimiento'] < $now) {
+            $totales['vencido'] += $c['monto_pendiente'];
+            $c['status_class'] = 'status-overdue';
+            $c['estado_display'] = 'Vencida';
+        } else {
+            $c['status_class'] = ($c['estado'] === 'PAGADA') ? 'status-paid' : 'status-pending';
+            $c['estado_display'] = $c['estado'];
+        }
+    }
+} catch (PDOException $e) {
+    error_log("Error al cargar cuentas por cobrar: " . $e->getMessage());
+}
 ?>
 <!DOCTYPE html>
 <html lang="es">
@@ -581,9 +575,12 @@ $totales = [
                 <div class="accounting-header">
                     <h1><i class="fas fa-hand-holding-usd"></i> Cuentas por Cobrar</h1>
                     <div class="header-actions">
-                        <button class="btn-accounting btn-primary" onclick="openNuevaCuentaModal()"><i class="fas fa-plus"></i> Nueva Cuenta</button>
-                        <button class="btn-accounting btn-success" onclick="exportarExcel()"><i class="fas fa-file-excel"></i> Exportar</button>
-                        <button class="btn-accounting btn-info" onclick="generarReporte()"><i class="fas fa-print"></i> Reportes</button>
+                        <button class="btn-accounting btn-primary" onclick="openNuevaCuentaModal()"><i
+                                class="fas fa-plus"></i> Nueva Cuenta</button>
+                        <button class="btn-accounting btn-success" onclick="exportarExcel()"><i
+                                class="fas fa-file-excel"></i> Exportar</button>
+                        <button class="btn-accounting btn-info" onclick="generarReporte()"><i class="fas fa-print"></i>
+                            Reportes</button>
                     </div>
                 </div>
 
@@ -671,31 +668,37 @@ $totales = [
                                             <?php echo str_pad($c['id'], 5, '0', STR_PAD_LEFT); ?>
                                         </td>
                                         <td style="font-weight: 600;">
-                                            <?php echo $c['cliente']; ?>
+                                            <?php echo htmlspecialchars($c['cliente_nombre']); ?>
                                         </td>
                                         <td>
-                                            <?php echo date('d/m/Y', strtotime($c['fecha'])); ?>
+                                            <?php echo date('d/m/Y', strtotime($c['fecha_emision'])); ?>
                                         </td>
                                         <td>
-                                            <?php echo date('d/m/Y', strtotime($c['vencimiento'])); ?>
+                                            <?php echo date('d/m/Y', strtotime($c['fecha_vencimiento'])); ?>
                                         </td>
                                         <td class="amount-cell">$
-                                            <?php echo number_format($c['total'], 2); ?>
+                                            <?php echo number_format($c['monto_original'], 2); ?>
                                         </td>
                                         <td class="balance-cell">$
-                                            <?php echo number_format($c['saldo'], 2); ?>
+                                            <?php echo number_format($c['monto_pendiente'], 2); ?>
                                         </td>
                                         <td>
                                             <span class="status-badge <?php echo $c['status_class']; ?>">
                                                 <i class="fas fa-circle" style="font-size: 0.5rem;"></i>
-                                                <?php echo $c['estado']; ?>
+                                                <?php echo $c['estado_display']; ?>
                                             </span>
                                         </td>
                                         <td class="actions-cell">
-                                            <button class="btn-icon" title="Ver Detalle" onclick='verDetalle(<?php echo json_encode($c); ?>)'><i class="fas fa-eye"></i></button>
-                                            <button class="btn-icon" title="Registrar Pago" style="color: #059669;" onclick='registrarPago(<?php echo json_encode($c); ?>)'><i
-                                                    class="fas fa-money-bill-wave"></i></button>
-                                            <button class="btn-icon" title="Enviar Recordatorio" style="color: #0ea5e9;" onclick='enviarRecordatorio(<?php echo $c["id"]; ?>, "<?php echo addslashes($c["cliente"]); ?>")'><i
+                                            <button class="btn-icon" title="Ver Detalle"
+                                                onclick='verDetalle(<?php echo json_encode($c); ?>)'><i
+                                                    class="fas fa-eye"></i></button>
+                                            <?php if ($c['monto_pendiente'] > 0): ?>
+                                                <button class="btn-icon" title="Registrar Pago" style="color: #059669;"
+                                                    onclick='registrarPago(<?php echo json_encode($c); ?>)'><i
+                                                        class="fas fa-money-bill-wave"></i></button>
+                                            <?php endif; ?>
+                                            <button class="btn-icon" title="Enviar Recordatorio" style="color: #0ea5e9;"
+                                                onclick='enviarRecordatorio(<?php echo $c["id"]; ?>, "<?php echo addslashes($c["cliente_nombre"]); ?>")'><i
                                                     class="fas fa-paper-plane"></i></button>
                                         </td>
                                     </tr>
@@ -720,13 +723,9 @@ $totales = [
                     <div class="form-group">
                         <label>Cliente *</label>
                         <div class="autocomplete-container">
-                            <input type="text" 
-                                   id="cliente_search" 
-                                   placeholder="Buscar por nombre o cédula/RUC..." 
-                                   autocomplete="off"
-                                   oninput="searchCliente(this.value)"
-                                   onfocus="searchCliente(this.value)"
-                                   required>
+                            <input type="text" id="cliente_search" placeholder="Buscar por nombre o cédula/RUC..."
+                                autocomplete="off" oninput="searchCliente(this.value)"
+                                onfocus="searchCliente(this.value)" required>
                             <input type="hidden" name="cliente_id" id="cliente_id" required>
                             <div class="autocomplete-results" id="cliente_results"></div>
                         </div>
@@ -758,7 +757,8 @@ $totales = [
                 </form>
             </div>
             <div class="modal-footer">
-                <button type="button" class="btn-modal btn-cancel" onclick="closeModal('modalNuevaCuenta')">Cancelar</button>
+                <button type="button" class="btn-modal btn-cancel"
+                    onclick="closeModal('modalNuevaCuenta')">Cancelar</button>
                 <button type="submit" form="formNuevaCuenta" class="btn-modal btn-submit">Guardar</button>
             </div>
         </div>
@@ -814,7 +814,8 @@ $totales = [
                 </form>
             </div>
             <div class="modal-footer">
-                <button type="button" class="btn-modal btn-cancel" onclick="closeModal('modalRegistrarPago')">Cancelar</button>
+                <button type="button" class="btn-modal btn-cancel"
+                    onclick="closeModal('modalRegistrarPago')">Cancelar</button>
                 <button type="submit" form="formRegistrarPago" class="btn-modal btn-submit">Registrar Pago</button>
             </div>
         </div>
@@ -858,7 +859,8 @@ $totales = [
                 </div>
             </div>
             <div class="modal-footer">
-                <button type="button" class="btn-modal btn-cancel" onclick="closeModal('modalVerDetalle')">Cerrar</button>
+                <button type="button" class="btn-modal btn-cancel"
+                    onclick="closeModal('modalVerDetalle')">Cerrar</button>
             </div>
         </div>
     </div>
@@ -872,7 +874,7 @@ $totales = [
         // Funciones de Autocompletado
         function searchCliente(query) {
             const resultsContainer = document.getElementById('cliente_results');
-            
+
             if (!query || query.length < 2) {
                 resultsContainer.classList.remove('active');
                 return;
@@ -897,7 +899,7 @@ $totales = [
                     <span class="item-id">${escapeHtml(cliente.identificacion || 'Sin identificación')}</span>
                 </div>
             `).join('');
-            
+
             resultsContainer.classList.add('active');
         }
 
@@ -914,7 +916,7 @@ $totales = [
         }
 
         // Cerrar autocompletado al hacer clic fuera
-        document.addEventListener('click', function(e) {
+        document.addEventListener('click', function (e) {
             if (!e.target.closest('.autocomplete-container')) {
                 document.getElementById('cliente_results').classList.remove('active');
             }
@@ -931,7 +933,7 @@ $totales = [
 
         // Cerrar modal al hacer clic fuera
         document.querySelectorAll('.modal-overlay').forEach(overlay => {
-            overlay.addEventListener('click', function(e) {
+            overlay.addEventListener('click', function (e) {
                 if (e.target === this) {
                     this.classList.remove('active');
                 }
@@ -945,56 +947,64 @@ $totales = [
 
         function guardarNuevaCuenta(event) {
             event.preventDefault();
-            const formData = new FormData(event.target);
-            
-            // Aquí se enviaría la información al servidor
-            console.log('Guardando nueva cuenta:', Object.fromEntries(formData));
-            
-            alert('✓ Cuenta por cobrar creada exitosamente');
-            closeModal('modalNuevaCuenta');
-            event.target.reset();
-            // Recargar la página o actualizar la tabla
-            setTimeout(() => location.reload(), 500);
+            const formData = Object.fromEntries(new FormData(event.target));
+
+            fetch('api_cobrar.php?action=save', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(formData)
+            })
+                .then(res => res.json())
+                .then(res => {
+                    if (res.success) {
+                        alert('✓ ' + res.message);
+                        closeModal('modalNuevaCuenta');
+                        location.reload();
+                    } else {
+                        alert('Error: ' + res.error);
+                    }
+                });
         }
 
         // Registrar Pago
         function registrarPago(cuenta) {
             document.getElementById('pago_cuenta_id').value = cuenta.id;
-            document.getElementById('pago_cliente').textContent = cuenta.cliente;
-            document.getElementById('pago_saldo').textContent = '$' + parseFloat(cuenta.saldo).toFixed(2);
-            document.getElementById('pago_monto').max = cuenta.saldo;
+            document.getElementById('pago_cliente').textContent = cuenta.cliente_nombre || cuenta.cliente;
+            document.getElementById('pago_saldo').textContent = '$' + parseFloat(cuenta.monto_pendiente || cuenta.saldo).toFixed(2);
+            document.getElementById('pago_monto').max = cuenta.monto_pendiente || cuenta.saldo;
             openModal('modalRegistrarPago');
         }
 
         function guardarPago(event) {
             event.preventDefault();
-            const formData = new FormData(event.target);
-            const monto = parseFloat(formData.get('monto'));
-            const saldo = parseFloat(document.getElementById('pago_saldo').textContent.replace('$', ''));
-            
-            if (monto > saldo) {
-                alert('⚠ El monto no puede ser mayor al saldo pendiente');
-                return;
-            }
-            
-            // Aquí se enviaría la información al servidor
-            console.log('Registrando pago:', Object.fromEntries(formData));
-            
-            alert('✓ Pago registrado exitosamente');
-            closeModal('modalRegistrarPago');
-            event.target.reset();
-            setTimeout(() => location.reload(), 500);
+            const formData = Object.fromEntries(new FormData(event.target));
+
+            fetch('api_cobrar.php?action=pay', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(formData)
+            })
+                .then(res => res.json())
+                .then(res => {
+                    if (res.success) {
+                        alert('✓ ' + res.message);
+                        closeModal('modalRegistrarPago');
+                        location.reload();
+                    } else {
+                        alert('Error: ' + res.error);
+                    }
+                });
         }
 
         // Ver Detalle
         function verDetalle(cuenta) {
             document.getElementById('detalle_id').textContent = '#' + String(cuenta.id).padStart(5, '0');
-            document.getElementById('detalle_cliente').textContent = cuenta.cliente;
-            document.getElementById('detalle_fecha').textContent = new Date(cuenta.fecha).toLocaleDateString('es-ES');
-            document.getElementById('detalle_vencimiento').textContent = new Date(cuenta.vencimiento).toLocaleDateString('es-ES');
-            document.getElementById('detalle_total').textContent = '$' + parseFloat(cuenta.total).toFixed(2);
-            document.getElementById('detalle_saldo').textContent = '$' + parseFloat(cuenta.saldo).toFixed(2);
-            document.getElementById('detalle_estado').innerHTML = `<span class="status-badge ${cuenta.status_class}">${cuenta.estado}</span>`;
+            document.getElementById('detalle_cliente').textContent = cuenta.cliente_nombre || cuenta.cliente;
+            document.getElementById('detalle_fecha').textContent = new Date(cuenta.fecha_emision || cuenta.fecha).toLocaleDateString('es-ES');
+            document.getElementById('detalle_vencimiento').textContent = new Date(cuenta.fecha_vencimiento || cuenta.vencimiento).toLocaleDateString('es-ES');
+            document.getElementById('detalle_total').textContent = '$' + parseFloat(cuenta.monto_original || cuenta.total).toFixed(2);
+            document.getElementById('detalle_saldo').textContent = '$' + parseFloat(cuenta.monto_pendiente || cuenta.saldo).toFixed(2);
+            document.getElementById('detalle_estado').innerHTML = `<span class="status-badge ${cuenta.status_class}">${cuenta.estado_display || cuenta.estado}</span>`;
             openModal('modalVerDetalle');
         }
 

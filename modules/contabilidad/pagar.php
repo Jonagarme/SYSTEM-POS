@@ -11,52 +11,59 @@ $current_page = 'contabilidad_pagar';
 // Cargar proveedores desde la base de datos
 $proveedores = [];
 try {
-    $stmt = $pdo->query("SELECT id, razonSocial as nombre, ruc FROM proveedores WHERE estado = 1 AND anulado = 0 ORDER BY razonSocial");
+    // Usamos la tabla 'proveedores' que es la que tiene los 24 registros
+    $stmt = $pdo->query("SELECT id, razonSocial as nombre, ruc FROM proveedores WHERE anulado = 0 ORDER BY razonSocial");
     $proveedores = $stmt->fetchAll(PDO::FETCH_ASSOC);
 } catch (PDOException $e) {
     error_log("Error al cargar proveedores: " . $e->getMessage());
 }
 
-// Dummy data for initial UI demonstration
-$cuentas = [
-    [
-        'id' => 1,
-        'proveedor' => 'Distribuidora Farmacéutica S.A.',
-        'fecha' => '2026-01-05',
-        'vencimiento' => '2026-02-05',
-        'total' => 2500.00,
-        'saldo' => 1250.00,
-        'estado' => 'Parcial',
-        'status_class' => 'status-pending'
-    ],
-    [
-        'id' => 2,
-        'proveedor' => 'Laboratorios Roche',
-        'fecha' => '2026-01-12',
-        'vencimiento' => '2026-02-12',
-        'total' => 850.00,
-        'saldo' => 850.00,
-        'estado' => 'Pendiente',
-        'status_class' => 'status-pending'
-    ],
-    [
-        'id' => 3,
-        'proveedor' => 'Suministros Médicos Global',
-        'fecha' => '2025-12-15',
-        'vencimiento' => '2026-01-15',
-        'total' => 450.00,
-        'saldo' => 450.00,
-        'estado' => 'Vencida',
-        'status_class' => 'status-overdue'
-    ]
+// Cargar cuentas por pagar desde la base de datos
+$cuentas = [];
+$totales = [
+    'total_por_pagar' => 0,
+    'pendiente' => 0,
+    'vencido' => 0,
+    'pagado_mes' => 0
 ];
 
-$totales = [
-    'total_por_pagar' => 3800.00,
-    'pendiente' => 2550.00,
-    'vencido' => 450.00,
-    'pagado_mes' => 5200.00
-];
+try {
+    $stmt = $pdo->query("SELECT c.*, p.razonSocial as proveedor_nombre, p.ruc
+                         FROM contabilidad_cuentaporpagar c
+                         LEFT JOIN proveedores p ON c.proveedor_id = p.id
+                         ORDER BY c.fecha_vencimiento ASC");
+    $cuentas = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+    $now = date('Y-m-d');
+    foreach ($cuentas as &$c) {
+        $totales['total_por_pagar'] += $c['monto_original'];
+        $totales['pendiente'] += $c['monto_pendiente'];
+
+        if ($c['estado'] !== 'PAGADA' && $c['fecha_vencimiento'] < $now) {
+            $totales['vencido'] += $c['monto_pendiente'];
+            $c['status_class'] = 'status-overdue';
+            $c['estado_display'] = 'Vencida';
+        } else {
+            $c['status_class'] = ($c['estado'] === 'PAGADA') ? 'status-paid' : 'status-pending';
+            $c['estado_display'] = $c['estado'];
+        }
+    }
+
+    // Total pagado este mes
+    $thisMonth = date('Y-m');
+    $stmtM = $pdo->prepare("SELECT SUM(monto) FROM contabilidad_pagocuentaporpagar 
+                           WHERE DATE_FORMAT(fecha_pago, '%Y-%m') = ?");
+    $stmtM->execute([$thisMonth]);
+    $totales['pagado_mes'] = (float) $stmtM->fetchColumn();
+
+    // Cargar cuentas bancarias reales
+    $stmtCb = $pdo->query("SELECT id, nombre, banco, numero_cuenta FROM contabilidad_cuentabancaria ORDER BY nombre ASC");
+    $cuentas_bancarias = $stmtCb->fetchAll(PDO::FETCH_ASSOC);
+
+} catch (PDOException $e) {
+    error_log("Error al cargar datos de contabilidad: " . $e->getMessage());
+    $error_msg = $e->getMessage();
+}
 ?>
 <!DOCTYPE html>
 <html lang="es">
@@ -311,34 +318,6 @@ $totales = [
             background: #eff6ff;
         }
 
-        /* Responsive Improvements */
-        @media (max-width: 1200px) {
-            .stats-grid {
-                grid-template-columns: repeat(2, 1fr);
-            }
-        }
-
-        @media (max-width: 768px) {
-            .accounting-header {
-                flex-direction: column;
-                align-items: flex-start;
-                gap: 20px;
-            }
-
-            .stats-grid {
-                grid-template-columns: 1fr;
-            }
-
-            .header-actions {
-                width: 100%;
-            }
-
-            .btn-accounting {
-                flex: 1;
-                justify-content: center;
-            }
-        }
-
         /* Modal Styles */
         .modal-overlay {
             display: none;
@@ -398,11 +377,6 @@ $totales = [
             border-radius: 6px;
         }
 
-        .modal-close:hover {
-            background: #f1f5f9;
-            color: #475569;
-        }
-
         .modal-body {
             padding: 24px;
         }
@@ -429,19 +403,6 @@ $totales = [
             font-size: 0.9rem;
             color: #1e293b;
             transition: all 0.2s;
-        }
-
-        .form-group input:focus,
-        .form-group select:focus,
-        .form-group textarea:focus {
-            outline: none;
-            border-color: #2563eb;
-            box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
-        }
-
-        .form-group textarea {
-            resize: vertical;
-            min-height: 80px;
         }
 
         .form-row {
@@ -473,66 +434,9 @@ $totales = [
             color: #475569;
         }
 
-        .btn-cancel:hover {
-            background: #e2e8f0;
-        }
-
         .btn-submit {
             background: #2563eb;
             color: white;
-        }
-
-        .btn-submit:hover {
-            background: #1d4ed8;
-        }
-
-        .detail-row {
-            display: flex;
-            justify-content: space-between;
-            padding: 12px 0;
-            border-bottom: 1px solid #f1f5f9;
-        }
-
-        .detail-row:last-child {
-            border-bottom: none;
-        }
-
-        .detail-label {
-            font-size: 0.9rem;
-            color: #64748b;
-            font-weight: 500;
-        }
-
-        .detail-value {
-            font-size: 0.9rem;
-            color: #1e293b;
-            font-weight: 600;
-        }
-
-        .payment-schedule {
-            margin-top: 15px;
-        }
-
-        .payment-schedule-item {
-            background: #f8fafc;
-            border: 1px solid #e2e8f0;
-            border-radius: 8px;
-            padding: 12px;
-            margin-bottom: 10px;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
-
-        .payment-schedule-item button {
-            background: #ef4444;
-            color: white;
-            border: none;
-            width: 24px;
-            height: 24px;
-            border-radius: 4px;
-            cursor: pointer;
-            font-size: 0.75rem;
         }
     </style>
 </head>
@@ -551,74 +455,43 @@ $totales = [
                 <div class="accounting-header">
                     <h1><i class="fas fa-file-invoice-dollar"></i> Cuentas por Pagar</h1>
                     <div class="header-actions">
-                        <button class="btn-accounting btn-primary" onclick="openRegistrarFacturaModal()"><i class="fas fa-plus"></i> Registrar
-                            Factura</button>
-                        <button class="btn-accounting btn-warning" onclick="openProgramarPagosModal()"><i class="fas fa-calendar-check"></i> Programar
-                            Pagos</button>
-                        <button class="btn-accounting btn-info" onclick="generarReporte()"><i class="fas fa-print"></i> Reportes</button>
+                        <button class="btn-accounting btn-primary" onclick="openRegistrarFacturaModal()"><i
+                                class="fas fa-plus"></i> Registrar Factura</button>
+                        <button class="btn-accounting btn-warning" onclick="openProgramarPagosModal()"><i
+                                class="fas fa-calendar-check"></i> Programar Pagos</button>
                     </div>
                 </div>
 
                 <div class="stats-grid">
                     <div class="stat-card">
-                        <div class="stat-info">
-                            <span class="stat-label">Total a Pagar</span>
-                            <span class="stat-value">$
+                        <div class="stat-info"><span class="stat-label">Total a Pagar</span><span class="stat-value">$
                                 <?php echo number_format($totales['total_por_pagar'], 2); ?>
-                            </span>
-                        </div>
-                        <div class="stat-icon icon-blue">
-                            <i class="fas fa-wallet"></i>
-                        </div>
+                            </span></div>
+                        <div class="stat-icon icon-blue"><i class="fas fa-wallet"></i></div>
                     </div>
                     <div class="stat-card">
-                        <div class="stat-info">
-                            <span class="stat-label">Pendiente</span>
-                            <span class="stat-value">$
+                        <div class="stat-info"><span class="stat-label">Pendiente</span><span class="stat-value">$
                                 <?php echo number_format($totales['pendiente'], 2); ?>
-                            </span>
-                        </div>
-                        <div class="stat-icon icon-yellow">
-                            <i class="fas fa-hourglass-half"></i>
-                        </div>
+                            </span></div>
+                        <div class="stat-icon icon-yellow"><i class="fas fa-hourglass-half"></i></div>
                     </div>
                     <div class="stat-card">
-                        <div class="stat-info">
-                            <span class="stat-label">Vencido</span>
-                            <span class="stat-value">$
+                        <div class="stat-info"><span class="stat-label">Vencido</span><span class="stat-value">$
                                 <?php echo number_format($totales['vencido'], 2); ?>
-                            </span>
-                        </div>
-                        <div class="stat-icon icon-red">
-                            <i class="fas fa-exclamation-circle"></i>
-                        </div>
+                            </span></div>
+                        <div class="stat-icon icon-red"><i class="fas fa-exclamation-circle"></i></div>
                     </div>
                     <div class="stat-card">
-                        <div class="stat-info">
-                            <span class="stat-label">Saldado este Mes</span>
-                            <span class="stat-value">$
+                        <div class="stat-info"><span class="stat-label">Saldado Mes</span><span class="stat-value">$
                                 <?php echo number_format($totales['pagado_mes'], 2); ?>
-                            </span>
-                        </div>
-                        <div class="stat-icon icon-green">
-                            <i class="fas fa-check-double"></i>
-                        </div>
+                            </span></div>
+                        <div class="stat-icon icon-green"><i class="fas fa-check-double"></i></div>
                     </div>
                 </div>
 
                 <div class="table-container">
                     <div class="table-toolbar">
-                        <div class="search-box">
-                            <i class="fas fa-search"></i>
-                            <input type="text" placeholder="Buscar por proveedor o documento...">
-                        </div>
-                        <div class="filter-options">
-                            <select class="form-select"
-                                style="padding: 8px 12px; border-radius: 8px; border: 1px solid #e2e8f0;">
-                                <option value="">Todos los Proveedores</option>
-                                <option value="Roche">Laboratorios Roche</option>
-                                <option value="Roche">Distribuidora Farmacéutica</option>
-                            </select>
+                        <div class="search-box"><i class="fas fa-search"></i><input type="text" placeholder="Buscar...">
                         </div>
                     </div>
                     <div style="overflow-x: auto;">
@@ -642,32 +515,31 @@ $totales = [
                                             <?php echo str_pad($c['id'], 5, '0', STR_PAD_LEFT); ?>
                                         </td>
                                         <td style="font-weight: 600;">
-                                            <?php echo $c['proveedor']; ?>
+                                            <?php echo htmlspecialchars($c['proveedor_nombre'] ?? 'Desconocido'); ?>
                                         </td>
                                         <td>
-                                            <?php echo date('d/m/Y', strtotime($c['fecha'])); ?>
+                                            <?php echo date('d/m/Y', strtotime($c['fecha_emision'])); ?>
                                         </td>
                                         <td>
-                                            <?php echo date('d/m/Y', strtotime($c['vencimiento'])); ?>
+                                            <?php echo date('d/m/Y', strtotime($c['fecha_vencimiento'])); ?>
                                         </td>
                                         <td class="amount-cell">$
-                                            <?php echo number_format($c['total'], 2); ?>
+                                            <?php echo number_format($c['monto_original'], 2); ?>
                                         </td>
                                         <td class="balance-cell">$
-                                            <?php echo number_format($c['saldo'], 2); ?>
+                                            <?php echo number_format($c['monto_pendiente'], 2); ?>
                                         </td>
-                                        <td>
-                                            <span class="status-badge <?php echo $c['status_class']; ?>">
-                                                <i class="fas fa-circle" style="font-size: 0.5rem;"></i>
-                                                <?php echo $c['estado']; ?>
-                                            </span>
-                                        </td>
+                                        <td><span class="status-badge <?php echo $c['status_class']; ?>">
+                                                <?php echo $c['estado_display']; ?>
+                                            </span></td>
                                         <td class="actions-cell">
-                                            <button class="btn-icon" title="Ver Detalle" onclick='verDetalle(<?php echo json_encode($c); ?>)'><i class="fas fa-eye"></i></button>
-                                            <button class="btn-icon" title="Emitir Pago" style="color: #2563eb;" onclick='emitirPago(<?php echo json_encode($c); ?>)'><i
-                                                    class="fas fa-check-circle"></i></button>
-                                            <button class="btn-icon" title="Contactar Proveedor" style="color: #0ea5e9;" onclick='contactarProveedor(<?php echo $c["id"]; ?>, "<?php echo addslashes($c["proveedor"]); ?>")'><i
-                                                    class="fas fa-envelope"></i></button>
+                                            <button class="btn-icon" onclick='verDetalle(<?php echo json_encode($c); ?>)'><i
+                                                    class="fas fa-eye"></i></button>
+                                            <?php if ($c['monto_pendiente'] > 0): ?>
+                                                <button class="btn-icon" style="color: #2563eb;"
+                                                    onclick='emitirPago(<?php echo json_encode($c); ?>)'><i
+                                                        class="fas fa-check-circle"></i></button>
+                                            <?php endif; ?>
                                         </td>
                                     </tr>
                                 <?php endforeach; ?>
@@ -683,8 +555,8 @@ $totales = [
     <div class="modal-overlay" id="modalRegistrarFactura">
         <div class="modal">
             <div class="modal-header">
-                <h2><i class="fas fa-file-invoice"></i> Registrar Factura de Proveedor</h2>
-                <button class="modal-close" onclick="closeModal('modalRegistrarFactura')">&times;</button>
+                <h2><i class="fas fa-file-invoice"></i> Registrar Factura</h2><button class="modal-close"
+                    onclick="closeModal('modalRegistrarFactura')">&times;</button>
             </div>
             <div class="modal-body">
                 <form id="formRegistrarFactura" onsubmit="guardarFactura(event)">
@@ -694,54 +566,33 @@ $totales = [
                             <option value="">Seleccione un proveedor</option>
                             <?php foreach ($proveedores as $proveedor): ?>
                                 <option value="<?php echo $proveedor['id']; ?>">
-                                    <?php echo htmlspecialchars($proveedor['nombre']); ?>
-                                    <?php if (!empty($proveedor['ruc'])): ?>
-                                        - RUC: <?php echo htmlspecialchars($proveedor['ruc']); ?>
-                                    <?php endif; ?>
+                                    <?php echo htmlspecialchars($proveedor['nombre']); ?> (
+                                    <?php echo htmlspecialchars($proveedor['ruc']); ?>)
                                 </option>
                             <?php endforeach; ?>
                         </select>
                     </div>
                     <div class="form-row">
-                        <div class="form-group">
-                            <label>Número de Factura *</label>
-                            <input type="text" name="factura" placeholder="001-001-000001234" required>
-                        </div>
-                        <div class="form-group">
-                            <label>Fecha de Emisión *</label>
-                            <input type="date" name="fecha" value="<?php echo date('Y-m-d'); ?>" required>
-                        </div>
+                        <div class="form-group"><label>Número Factura *</label><input type="text" name="factura"
+                                required></div>
+                        <div class="form-group"><label>Fecha Emisión *</label><input type="date" name="fecha"
+                                value="<?php echo date('Y-m-d'); ?>" required></div>
                     </div>
                     <div class="form-row">
-                        <div class="form-group">
-                            <label>Monto Total *</label>
-                            <input type="number" name="total" step="0.01" placeholder="0.00" required>
-                        </div>
-                        <div class="form-group">
-                            <label>Días de Crédito *</label>
-                            <input type="number" name="dias_credito" value="30" required>
-                        </div>
+                        <div class="form-group"><label>Monto Total *</label><input type="number" name="total"
+                                step="0.01" required></div>
+                        <div class="form-group"><label>Días Crédito *</label><input type="number" name="dias_credito"
+                                value="30" required></div>
                     </div>
-                    <div class="form-group">
-                        <label>Tipo de Compra *</label>
-                        <select name="tipo_compra" required>
-                            <option value="">Seleccione tipo</option>
-                            <option value="mercaderia">Mercadería</option>
-                            <option value="servicios">Servicios</option>
-                            <option value="insumos">Insumos</option>
-                            <option value="activos">Activos Fijos</option>
-                        </select>
-                    </div>
-                    <div class="form-group">
-                        <label>Observaciones</label>
-                        <textarea name="observaciones" placeholder="Notas adicionales..."></textarea>
-                    </div>
+                    <div class="form-group"><label>Categoría</label><select name="tipo_compra">
+                            <option value="Mercaderia">Mercadería</option>
+                            <option value="Servicios">Servicios</option>
+                        </select></div>
                 </form>
             </div>
-            <div class="modal-footer">
-                <button type="button" class="btn-modal btn-cancel" onclick="closeModal('modalRegistrarFactura')">Cancelar</button>
-                <button type="submit" form="formRegistrarFactura" class="btn-modal btn-submit">Guardar</button>
-            </div>
+            <div class="modal-footer"><button type="button" class="btn-modal btn-cancel"
+                    onclick="closeModal('modalRegistrarFactura')">Cancelar</button><button type="submit"
+                    form="formRegistrarFactura" class="btn-modal btn-submit">Guardar</button></div>
         </div>
     </div>
 
@@ -749,329 +600,195 @@ $totales = [
     <div class="modal-overlay" id="modalProgramarPagos">
         <div class="modal">
             <div class="modal-header">
-                <h2><i class="fas fa-calendar-check"></i> Programar Pagos</h2>
-                <button class="modal-close" onclick="closeModal('modalProgramarPagos')">&times;</button>
+                <h2><i class="fas fa-calendar-check"></i> Programar Pagos</h2><button class="modal-close"
+                    onclick="closeModal('modalProgramarPagos')">&times;</button>
             </div>
             <div class="modal-body">
                 <form id="formProgramarPagos" onsubmit="guardarProgramacion(event)">
                     <div class="form-group">
                         <label>Cuenta a Pagar *</label>
                         <select name="cuenta_id" id="programar_cuenta_id" onchange="updateDeudaInfo()" required>
-                            <option value="">Seleccione una cuenta</option>
-                            <?php foreach ($cuentas as $c): ?>
-                                <option value="<?php echo $c['id']; ?>" data-proveedor="<?php echo $c['proveedor']; ?>" data-saldo="<?php echo $c['saldo']; ?>">
-                                    #<?php echo str_pad($c['id'], 5, '0', STR_PAD_LEFT); ?> - <?php echo $c['proveedor']; ?> ($<?php echo number_format($c['saldo'], 2); ?>)
-                                </option>
-                            <?php endforeach; ?>
+                            <?php if (empty($cuentas)): ?>
+                                <option value="">No hay facturas pendientes</option>
+                            <?php else: ?>
+                                <option value="">Seleccione una factura</option>
+                                <?php foreach ($cuentas as $c):
+                                    if ($c['monto_pendiente'] > 0): ?>
+                                        <option value="<?php echo $c['id']; ?>" data-saldo="<?php echo $c['monto_pendiente']; ?>">#
+                                            <?php echo str_pad($c['id'], 5, '0', STR_PAD_LEFT); ?> -
+                                            <?php echo htmlspecialchars($c['proveedor_nombre']); ?> ($
+                                            <?php echo number_format($c['monto_pendiente'], 2); ?>)
+                                        </option>
+                                    <?php endif; endforeach; ?>
+                            <?php endif; ?>
                         </select>
                     </div>
-                    <div class="detail-row" style="background: #f8fafc; padding: 12px; border-radius: 8px; margin-bottom: 20px;">
-                        <span class="detail-label">Monto Adeudado:</span>
-                        <span class="detail-value" style="color: #dc2626; font-size: 1.1rem;" id="programar_saldo">$0.00</span>
+                    <div id="info_pago"
+                        style="background: #f8fafc; padding: 15px; border-radius: 8px; margin-bottom: 20px; display:none;">
+                        <span style="color: #64748b; font-size: 0.9rem;">Saldo Pendiente:</span>
+                        <span id="programar_saldo"
+                            style="color:#dc2626; font-weight:700; font-size: 1.1rem; float: right;"></span>
+                        <div style="clear: both;"></div>
                     </div>
-                    <div class="form-row">
-                        <div class="form-group">
-                            <label>Número de Cuotas *</label>
-                            <input type="number" name="num_cuotas" id="num_cuotas" min="1" max="12" value="1" onchange="generatePaymentSchedule()" required>
+
+                    <div id="campos_programacion" style="display: none;">
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label>Número de Cuotas *</label>
+                                <input type="number" name="num_cuotas" id="num_cuotas" min="1" max="24" value="1"
+                                    onchange="generatePaymentSchedule()">
+                            </div>
+                            <div class="form-group">
+                                <label>Frecuencia *</label>
+                                <select name="frecuencia" id="frecuencia" onchange="generatePaymentSchedule()">
+                                    <option value="semanal">Semanal</option>
+                                    <option value="quincenal">Quincenal</option>
+                                    <option value="mensual" selected>Mensual</option>
+                                </select>
+                            </div>
                         </div>
+
                         <div class="form-group">
-                            <label>Frecuencia *</label>
-                            <select name="frecuencia" id="frecuencia" onchange="generatePaymentSchedule()" required>
-                                <option value="semanal">Semanal</option>
-                                <option value="quincenal">Quincenal</option>
-                                <option value="mensual" selected>Mensual</option>
-                            </select>
+                            <label>Fecha del Primer Pago *</label>
+                            <input type="date" name="fecha_inicio" id="fecha_inicio"
+                                value="<?php echo date('Y-m-d'); ?>" onchange="generatePaymentSchedule()">
                         </div>
-                    </div>
-                    <div class="form-group">
-                        <label>Fecha del Primer Pago *</label>
-                        <input type="date" name="fecha_inicio" id="fecha_inicio" value="<?php echo date('Y-m-d', strtotime('+1 week')); ?>" onchange="generatePaymentSchedule()" required>
-                    </div>
-                    <div class="payment-schedule" id="paymentSchedule" style="display: none;">
-                        <label style="font-size: 0.875rem; font-weight: 600; color: #475569; margin-bottom: 10px; display: block;">Cronograma de Pagos:</label>
-                        <div id="scheduleItems"></div>
+
+                        <div id="paymentSchedule"
+                            style="margin-top: 20px; border-top: 1px solid #f1f5f9; padding-top: 15px; display: none;">
+                            <label
+                                style="font-weight: 700; font-size: 0.85rem; color: #475569; text-transform: uppercase;">Cronograma
+                                Estimado:</label>
+                            <div id="scheduleItems" style="margin-top: 10px; max-height: 200px; overflow-y: auto;">
+                            </div>
+                        </div>
                     </div>
                 </form>
             </div>
             <div class="modal-footer">
-                <button type="button" class="btn-modal btn-cancel" onclick="closeModal('modalProgramarPagos')">Cancelar</button>
-                <button type="submit" form="formProgramarPagos" class="btn-modal btn-submit">Guardar Programación</button>
+                <button type="button" class="btn-modal btn-cancel"
+                    onclick="closeModal('modalProgramarPagos')">Cancelar</button>
+                <button type="submit" form="formProgramarPagos" class="btn-modal btn-submit" id="btn_guardar_prog"
+                    style="display: none;">Guardar Programación</button>
             </div>
         </div>
     </div>
 
-    <!-- Modal Emitir Pago -->
-    <div class="modal-overlay" id="modalEmitirPago">
-        <div class="modal">
-            <div class="modal-header">
-                <h2><i class="fas fa-check-circle"></i> Emitir Pago</h2>
-                <button class="modal-close" onclick="closeModal('modalEmitirPago')">&times;</button>
-            </div>
-            <div class="modal-body">
-                <form id="formEmitirPago" onsubmit="guardarEmisionPago(event)">
-                    <input type="hidden" name="cuenta_id" id="emitir_cuenta_id">
-                    <div class="detail-row">
-                        <span class="detail-label">Proveedor:</span>
-                        <span class="detail-value" id="emitir_proveedor"></span>
-                    </div>
-                    <div class="detail-row">
-                        <span class="detail-label">Monto Adeudado:</span>
-                        <span class="detail-value" style="color: #dc2626;" id="emitir_saldo"></span>
-                    </div>
-                    <hr style="margin: 20px 0; border: none; border-top: 1px solid #f1f5f9;">
-                    <div class="form-row">
-                        <div class="form-group">
-                            <label>Monto a Pagar *</label>
-                            <input type="number" name="monto" id="emitir_monto" step="0.01" placeholder="0.00" required>
-                        </div>
-                        <div class="form-group">
-                            <label>Fecha de Pago *</label>
-                            <input type="date" name="fecha_pago" value="<?php echo date('Y-m-d'); ?>" required>
-                        </div>
-                    </div>
-                    <div class="form-group">
-                        <label>Método de Pago *</label>
-                        <select name="metodo_pago" required>
-                            <option value="">Seleccione método</option>
-                            <option value="transferencia">Transferencia Bancaria</option>
-                            <option value="cheque">Cheque</option>
-                            <option value="efectivo">Efectivo</option>
-                            <option value="tarjeta">Tarjeta Corporativa</option>
-                        </select>
-                    </div>
-                    <div class="form-group">
-                        <label>Número de Comprobante *</label>
-                        <input type="text" name="comprobante" placeholder="Número de transferencia, cheque, etc." required>
-                    </div>
-                    <div class="form-group">
-                        <label>Cuenta Bancaria</label>
-                        <select name="cuenta_bancaria">
-                            <option value="">Seleccione cuenta</option>
-                            <option value="1">Banco Pichincha - *****1234</option>
-                            <option value="2">Banco Guayaquil - *****5678</option>
-                            <option value="3">Produbanco - *****9012</option>
-                        </select>
-                    </div>
-                    <div class="form-group">
-                        <label>Notas</label>
-                        <textarea name="notas" placeholder="Observaciones adicionales..."></textarea>
-                    </div>
-                </form>
-            </div>
-            <div class="modal-footer">
-                <button type="button" class="btn-modal btn-cancel" onclick="closeModal('modalEmitirPago')">Cancelar</button>
-                <button type="submit" form="formEmitirPago" class="btn-modal btn-submit">Emitir Pago</button>
-            </div>
-        </div>
-    </div>
-
-    <!-- Modal Ver Detalle -->
-    <div class="modal-overlay" id="modalVerDetalle">
-        <div class="modal">
-            <div class="modal-header">
-                <h2><i class="fas fa-file-invoice"></i> Detalle de Cuenta por Pagar</h2>
-                <button class="modal-close" onclick="closeModal('modalVerDetalle')">&times;</button>
-            </div>
-            <div class="modal-body">
-                <div class="detail-row">
-                    <span class="detail-label">ID Cuenta:</span>
-                    <span class="detail-value" id="detalle_id"></span>
-                </div>
-                <div class="detail-row">
-                    <span class="detail-label">Proveedor:</span>
-                    <span class="detail-value" id="detalle_proveedor"></span>
-                </div>
-                <div class="detail-row">
-                    <span class="detail-label">Fecha de Emisión:</span>
-                    <span class="detail-value" id="detalle_fecha"></span>
-                </div>
-                <div class="detail-row">
-                    <span class="detail-label">Fecha de Vencimiento:</span>
-                    <span class="detail-value" id="detalle_vencimiento"></span>
-                </div>
-                <div class="detail-row">
-                    <span class="detail-label">Monto Total:</span>
-                    <span class="detail-value" id="detalle_total"></span>
-                </div>
-                <div class="detail-row">
-                    <span class="detail-label">Saldo Pendiente:</span>
-                    <span class="detail-value" style="color: #dc2626; font-size: 1.1rem;" id="detalle_saldo"></span>
-                </div>
-                <div class="detail-row">
-                    <span class="detail-label">Estado:</span>
-                    <span class="detail-value" id="detalle_estado"></span>
-                </div>
-            </div>
-            <div class="modal-footer">
-                <button type="button" class="btn-modal btn-cancel" onclick="closeModal('modalVerDetalle')">Cerrar</button>
-            </div>
-        </div>
-    </div>
-
-    <?php include $root . 'includes/scripts.php'; ?>
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     <script>
-        // Funciones de Modal
-        function openModal(modalId) {
-            document.getElementById(modalId).classList.add('active');
-        }
-
-        function closeModal(modalId) {
-            document.getElementById(modalId).classList.remove('active');
-        }
-
-        // Cerrar modal al hacer clic fuera
-        document.querySelectorAll('.modal-overlay').forEach(overlay => {
-            overlay.addEventListener('click', function(e) {
-                if (e.target === this) {
-                    this.classList.remove('active');
-                }
-            });
-        });
-
-        // Registrar Factura
-        function openRegistrarFacturaModal() {
-            openModal('modalRegistrarFactura');
-        }
-
-        function guardarFactura(event) {
-            event.preventDefault();
-            const formData = new FormData(event.target);
-            
-            // Aquí se enviaría la información al servidor
-            console.log('Guardando factura:', Object.fromEntries(formData));
-            
-            alert('✓ Factura registrada exitosamente');
-            closeModal('modalRegistrarFactura');
-            event.target.reset();
-            setTimeout(() => location.reload(), 500);
-        }
-
-        // Programar Pagos
-        function openProgramarPagosModal() {
-            openModal('modalProgramarPagos');
-        }
+        function openModal(id) { document.getElementById(id).classList.add('active'); }
+        function closeModal(id) { document.getElementById(id).classList.remove('active'); }
+        function openRegistrarFacturaModal() { openModal('modalRegistrarFactura'); }
+        function openProgramarPagosModal() { openModal('modalProgramarPagos'); }
 
         function updateDeudaInfo() {
-            const select = document.getElementById('programar_cuenta_id');
-            const option = select.options[select.selectedIndex];
-            if (option.value) {
-                const saldo = parseFloat(option.getAttribute('data-saldo'));
-                document.getElementById('programar_saldo').textContent = '$' + saldo.toFixed(2);
+            const sel = document.getElementById('programar_cuenta_id');
+            const opt = sel.options[sel.selectedIndex];
+            if (opt.value) {
+                document.getElementById('info_pago').style.display = 'block';
+                document.getElementById('campos_programacion').style.display = 'block';
+                document.getElementById('btn_guardar_prog').style.display = 'block';
+                document.getElementById('programar_saldo').textContent = '$' + parseFloat(opt.getAttribute('data-saldo')).toFixed(2);
                 generatePaymentSchedule();
             } else {
-                document.getElementById('programar_saldo').textContent = '$0.00';
-                document.getElementById('paymentSchedule').style.display = 'none';
+                document.getElementById('info_pago').style.display = 'none';
+                document.getElementById('campos_programacion').style.display = 'none';
+                document.getElementById('btn_guardar_prog').style.display = 'none';
             }
         }
 
         function generatePaymentSchedule() {
-            const select = document.getElementById('programar_cuenta_id');
-            const option = select.options[select.selectedIndex];
-            if (!option.value) return;
+            const sel = document.getElementById('programar_cuenta_id');
+            const opt = sel.options[sel.selectedIndex];
+            if (!opt.value) return;
 
-            const saldo = parseFloat(option.getAttribute('data-saldo'));
-            const numCuotas = parseInt(document.getElementById('num_cuotas').value);
+            const saldo = parseFloat(opt.getAttribute('data-saldo'));
+            const numCuotas = parseInt(document.getElementById('num_cuotas').value) || 1;
             const frecuencia = document.getElementById('frecuencia').value;
-            const fechaInicio = new Date(document.getElementById('fecha_inicio').value);
+            const fechaInicioStr = document.getElementById('fecha_inicio').value;
 
-            if (!numCuotas || !fechaInicio || isNaN(fechaInicio)) return;
+            if (!fechaInicioStr) return;
 
             const montoCuota = (saldo / numCuotas).toFixed(2);
             const scheduleContainer = document.getElementById('scheduleItems');
             scheduleContainer.innerHTML = '';
 
-            let diasIncremento;
-            switch(frecuencia) {
-                case 'semanal': diasIncremento = 7; break;
-                case 'quincenal': diasIncremento = 15; break;
-                case 'mensual': diasIncremento = 30; break;
-            }
+            let diasIncremento = 30;
+            if (frecuencia === 'semanal') diasIncremento = 7;
+            if (frecuencia === 'quincenal') diasIncremento = 15;
 
             for (let i = 0; i < numCuotas; i++) {
-                const fechaPago = new Date(fechaInicio);
-                fechaPago.setDate(fechaPago.getDate() + (diasIncremento * i));
-                
+                let fecha = new Date(fechaInicioStr + 'T12:00:00');
+                fecha.setDate(fecha.getDate() + (i * diasIncremento));
+
                 const item = document.createElement('div');
-                item.className = 'payment-schedule-item';
+                item.style.cssText = 'padding: 8px 12px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 6px; margin-bottom: 6px; display: flex; justify-content: space-between; font-size: 0.85rem;';
                 item.innerHTML = `
-                    <div>
-                        <strong>Cuota ${i + 1}</strong><br>
-                        <small style="color: #64748b;">${fechaPago.toLocaleDateString('es-ES')} - $${montoCuota}</small>
-                    </div>
+                    <span><b>Cuota ${i + 1}:</b> ${fecha.toLocaleDateString('es-ES')}</span>
+                    <span style="font-weight: 700;">$${montoCuota}</span>
                 `;
                 scheduleContainer.appendChild(item);
             }
-
             document.getElementById('paymentSchedule').style.display = 'block';
         }
 
-        function guardarProgramacion(event) {
-            event.preventDefault();
-            const formData = new FormData(event.target);
-            
-            // Aquí se enviaría la información al servidor
-            console.log('Guardando programación:', Object.fromEntries(formData));
-            
-            alert('✓ Programación de pagos guardada exitosamente');
-            closeModal('modalProgramarPagos');
-            event.target.reset();
-            document.getElementById('paymentSchedule').style.display = 'none';
-        }
+        async function guardarProgramacion(e) {
+            e.preventDefault();
+            const sel = document.getElementById('programar_cuenta_id');
+            const data = {
+                cuenta_id: sel.value,
+                num_cuotas: document.getElementById('num_cuotas').value,
+                frecuencia: document.getElementById('frecuencia').value,
+                fecha_inicio: document.getElementById('fecha_inicio').value,
+                saldo: sel.options[sel.selectedIndex].getAttribute('data-saldo')
+            };
 
-        // Emitir Pago
-        function emitirPago(cuenta) {
-            document.getElementById('emitir_cuenta_id').value = cuenta.id;
-            document.getElementById('emitir_proveedor').textContent = cuenta.proveedor;
-            document.getElementById('emitir_saldo').textContent = '$' + parseFloat(cuenta.saldo).toFixed(2);
-            document.getElementById('emitir_monto').max = cuenta.saldo;
-            openModal('modalEmitirPago');
-        }
-
-        function guardarEmisionPago(event) {
-            event.preventDefault();
-            const formData = new FormData(event.target);
-            const monto = parseFloat(formData.get('monto'));
-            const saldo = parseFloat(document.getElementById('emitir_saldo').textContent.replace('$', ''));
-            
-            if (monto > saldo) {
-                alert('⚠ El monto no puede ser mayor al saldo adeudado');
-                return;
-            }
-            
-            // Aquí se enviaría la información al servidor
-            console.log('Emitiendo pago:', Object.fromEntries(formData));
-            
-            alert('✓ Pago emitido exitosamente');
-            closeModal('modalEmitirPago');
-            event.target.reset();
-            setTimeout(() => location.reload(), 500);
-        }
-
-        // Ver Detalle
-        function verDetalle(cuenta) {
-            document.getElementById('detalle_id').textContent = '#' + String(cuenta.id).padStart(5, '0');
-            document.getElementById('detalle_proveedor').textContent = cuenta.proveedor;
-            document.getElementById('detalle_fecha').textContent = new Date(cuenta.fecha).toLocaleDateString('es-ES');
-            document.getElementById('detalle_vencimiento').textContent = new Date(cuenta.vencimiento).toLocaleDateString('es-ES');
-            document.getElementById('detalle_total').textContent = '$' + parseFloat(cuenta.total).toFixed(2);
-            document.getElementById('detalle_saldo').textContent = '$' + parseFloat(cuenta.saldo).toFixed(2);
-            document.getElementById('detalle_estado').innerHTML = `<span class="status-badge ${cuenta.status_class}">${cuenta.estado}</span>`;
-            openModal('modalVerDetalle');
-        }
-
-        // Contactar Proveedor
-        function contactarProveedor(id, proveedor) {
-            if (confirm(`¿Desea contactar a ${proveedor}?`)) {
-                // Aquí se enviaría la notificación
-                console.log('Contactando proveedor:', id);
-                alert('✓ Mensaje enviado al proveedor exitosamente');
+            try {
+                const res = await fetch('api_pagar.php?action=save_schedule', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(data)
+                });
+                const r = await res.json();
+                if (r.success) {
+                    Swal.fire('Éxito', r.message, 'success').then(() => closeModal('modalProgramarPagos'));
+                } else {
+                    Swal.fire('Error', r.error, 'error');
+                }
+            } catch (error) {
+                Swal.fire('Error', 'No se pudo guardar la programación', 'error');
             }
         }
 
-        // Generar Reporte
-        function generarReporte() {
-            alert('Generando reporte...');
-            // Implementar lógica de reportes
+        async function guardarFactura(e) {
+            e.preventDefault();
+            const data = Object.fromEntries(new FormData(e.target));
+            try {
+                const res = await fetch('api_pagar.php?action=save', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(data)
+                });
+                const r = await res.json();
+                if (r.success) {
+                    Swal.fire('Éxito', r.message, 'success').then(() => location.reload());
+                } else {
+                    Swal.fire('Error', r.error, 'error');
+                }
+            } catch (error) { Swal.fire('Error', 'No se pudo guardar', 'error'); }
+        }
+
+        function verDetalle(c) {
+            Swal.fire({
+                title: 'Detalle de Cuenta #' + String(c.id).padStart(5, '0'),
+                html: `<div style="text-align:left">
+                    <p><b>Proveedor:</b> ${c.proveedor_nombre}</p>
+                    <p><b>Total:</b> $${c.monto_original}</p>
+                    <p><b>Pendiente:</b> $${c.monto_pendiente}</p>
+                    <p><b>Vencimiento:</b> ${c.fecha_vencimiento}</p>
+                </div>`,
+                confirmButtonText: 'Cerrar'
+            });
         }
     </script>
 </body>

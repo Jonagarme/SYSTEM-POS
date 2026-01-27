@@ -133,11 +133,19 @@ $current_page = $current_page ?? '';
                     <li class="submenu-header"
                         style="padding: 10px 20px 5px 52px; font-size: 0.65rem; color: #64748b; font-weight: 700; text-transform: uppercase;">
                         Gestión Financiera</li>
+                    <li><a href="<?php echo $root; ?>modules/contabilidad/asientos.php"><i class="fas fa-book"
+                                style="font-size: 0.75rem; margin-right: 8px;"></i> Asientos Contables</a></li>
                     <li><a href="<?php echo $root; ?>modules/contabilidad/cobrar.php"><i class="fas fa-hand-holding-usd"
                                 style="font-size: 0.75rem; margin-right: 8px;"></i> Cuentas por Cobrar</a></li>
                     <li><a href="<?php echo $root; ?>modules/contabilidad/pagar.php"><i
                                 class="fas fa-file-invoice-dollar" style="font-size: 0.75rem; margin-right: 8px;"></i>
                             Cuentas por Pagar</a></li>
+                    <li><a href="<?php echo $root; ?>modules/contabilidad/cuentas_bancarias.php"><i
+                                class="fas fa-university" style="font-size: 0.75rem; margin-right: 8px;"></i>
+                            Cuentas Bancarias</a></li>
+                    <li><a href="<?php echo $root; ?>modules/contabilidad/cronograma_pagos.php"><i
+                                class="fas fa-calendar-alt" style="font-size: 0.75rem; margin-right: 8px;"></i>
+                            Cronograma de Pagos</a></li>
                 </ul>
             </li>
 
