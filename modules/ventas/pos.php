@@ -614,8 +614,19 @@ $date_now = date('d/m/Y H:i');
                                 <span><i class="fas fa-box-open"></i> Buscar Productos</span>
                             </div>
                             <div class="panel-body">
-                                <input type="text" class="form-control product-search-input"
-                                    placeholder="Buscar por nombre, código o categoría...">
+                                <!-- Barcode Scanner Integration -->
+                                <div class="product-search-container" style="display: flex; gap: 10px; margin-bottom: 15px;">
+                                    <div style="flex: 1; position: relative;">
+                                        <i class="fas fa-search" style="position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: #94a3b8;"></i>
+                                        <input type="text" class="form-control product-search-input"
+                                            placeholder="Buscar por nombre, código o categoría..."
+                                            style="padding-left: 35px;">
+                                    </div>
+                                    <button class="btn btn-primary" id="btn-scan-barcode" title="Escanear Código" 
+                                        style="background: #6366f1; border: none; width: 45px; height: 45px; border-radius: 12px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; box-shadow: 0 4px 10px rgba(99, 102, 241, 0.3);">
+                                        <i class="fas fa-camera" style="font-size: 1.2rem;"></i>
+                                    </button>
+                                </div>
 
                                 <div class="pos-product-grid" id="pos-product-grid">
                                     <?php
@@ -1047,6 +1058,44 @@ $date_now = date('d/m/Y H:i');
                     </div>
                 </div>
             </div>
+            <!-- MODAL: SCANNER BARCODE -->
+            <div class="modal-overlay" id="modal-scanner" style="z-index: 1010; display: none;">
+                <div class="modal-content" style="max-width: 500px; border-radius: 20px; overflow: hidden; position: relative;">
+                    <div class="modal-header" style="background: #1e3a8a; color: white; padding: 15px 20px;">
+                        <h2 style="font-size: 1.1rem; margin: 0;"><i class="fas fa-barcode"></i> Escanear Código</h2>
+                        <button class="btn-text close-scanner" style="color: white; border: none; background: none; font-size: 1.5rem; cursor: pointer;"><i class="fas fa-times"></i></button>
+                    </div>
+                    <div class="modal-body" style="padding: 0; background: #000; position: relative; min-height: 350px; display: flex; align-items: center; justify-content: center;">
+                        <div id="reader" style="width: 100%;"></div>
+                        <div id="scanner-line" style="position: absolute; top: 0; left: 0; width: 100%; height: 2px; background: rgba(239, 68, 68, 0.8); box-shadow: 0 0 10px #ef4444; z-index: 10; animation: scan-anim 2s infinite linear; display: none;"></div>
+                    </div>
+                    <div class="modal-footer" style="padding: 15px; justify-content: center; background: #f8fafc;">
+                        <button class="btn btn-secondary close-scanner" style="border-radius: 10px; padding: 8px 20px;"><i class="fas fa-times"></i> Cancelar</button>
+                    </div>
+                </div>
+            </div>
+
+            <style>
+                @keyframes scan-anim {
+                    0% { top: 0%; }
+                    50% { top: 100%; }
+                    100% { top: 0%; }
+                }
+                #reader video {
+                    object-fit: cover !important;
+                    width: 100% !important;
+                }
+                #reader__scan_region {
+                    background: transparent !important;
+                }
+                #reader__dashboard {
+                    background: #f8fafc !important;
+                    padding: 10px !important;
+                }
+                .product-search-container:focus-within button {
+                    transform: scale(1.05);
+                }
+            </style>
     </div> <!-- .pos-container -->
     </main> <!-- .main-content -->
     </div> <!-- .app-container -->
@@ -1054,6 +1103,8 @@ $date_now = date('d/m/Y H:i');
     <!-- Offline Support Libraries -->
     <script src="https://cdn.jsdelivr.net/npm/dexie@3.2.4/dist/dexie.min.js"></script>
     <script src="../../assets/js/offline-manager.js"></script>
+    <script src="https://unpkg.com/html5-qrcode/html5-qrcode.min.js"></script>
+
     <script>
         const modal = document.getElementById('modal-cliente');
         const btnOpen = document.getElementById('btn-nuevo-cliente');
@@ -1317,7 +1368,84 @@ $date_now = date('d/m/Y H:i');
                     saveState();
                 });
             }
+
+            // 8. Barcode Scanner Logic
+            const btnScan = document.getElementById('btn-scan-barcode');
+            const modalScanner = document.getElementById('modal-scanner');
+            const scannerLine = document.getElementById('scanner-line');
+            let html5QrCode = null;
+
+            if (btnScan) {
+                btnScan.onclick = async () => {
+                    modalScanner.style.display = 'flex';
+                    scannerLine.style.display = 'block';
+                    
+                    try {
+                        html5QrCode = new Html5Qrcode("reader");
+                        const config = { 
+                            fps: 20, 
+                            qrbox: { width: 280, height: 180 },
+                            aspectRatio: 1.0
+                        };
+
+                        await html5QrCode.start(
+                            { facingMode: "environment" }, 
+                            config,
+                            (decodedText, decodedResult) => {
+                                // Vibración si está disponible
+                                if (navigator.vibrate) navigator.vibrate(100);
+                                
+                                html5QrCode.stop().then(() => {
+                                    modalScanner.style.display = 'none';
+                                    scannerLine.style.display = 'none';
+                                    
+                                    productSearchInput.value = decodedText;
+                                    // Trigger search
+                                    productSearchInput.dispatchEvent(new Event('input'));
+                                    
+                                    // Direct add if unique
+                                    searchAndAddBarcode(decodedText);
+                                }).catch(err => console.error(err));
+                            }
+                        );
+                    } catch (err) {
+                        console.error("Error al iniciar cámara:", err);
+                        showToast("No se pudo acceder a la cámara o el navegador no es compatible.", "error");
+                        modalScanner.style.display = 'none';
+                    }
+                };
+            }
+
+            document.querySelectorAll('.close-scanner').forEach(btn => {
+                btn.onclick = () => {
+                    if (html5QrCode && html5QrCode.isScanning) {
+                        html5QrCode.stop().then(() => {
+                            modalScanner.style.display = 'none';
+                            scannerLine.style.display = 'none';
+                        }).catch(err => {
+                            console.error(err);
+                            modalScanner.style.display = 'none';
+                        });
+                    } else {
+                        modalScanner.style.display = 'none';
+                    }
+                };
+            });
+
+            function searchAndAddBarcode(code) {
+                fetch(`search_api.php?action=search_products&q=${encodeURIComponent(code)}`)
+                    .then(r => r.json())
+                    .then(data => {
+                        if (data.length === 1) {
+                            addToCart(data[0]);
+                            showToast(`Item agregado: ${data[0].nombre}`);
+                            productSearchInput.value = '';
+                        }
+                    })
+                    .catch(err => console.error("Error en búsqueda rápida por barra:", err));
+            }
         });
+
 
         // --- TAB MANAGEMENT ---
         function renderTabs() {
